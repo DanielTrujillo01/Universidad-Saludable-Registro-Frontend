@@ -1,6 +1,7 @@
 // src/components/EntityForm.jsx
 import { useState } from "react";
 import { Save, X } from "lucide-react";
+import { toast } from "sonner";
 import { normalizeText } from "../Funtions/BasicFuntions"; 
 
 const entityLabels = {
@@ -15,7 +16,7 @@ const entityLabels = {
   lineaEstrategia: "Línea de Estrategia",
 };
 
-export function EntityForm({ entityType, facultades, onSubmit, onCancel }) {
+export function EntityForm({ entityType, facultades, existingData = [], onSubmit, onCancel }) {
   const [nombre, setNombre] = useState("");
   const [facultadId, setFacultadId] = useState("");
 
@@ -25,7 +26,18 @@ export function EntityForm({ entityType, facultades, onSubmit, onCancel }) {
     const original = nombre;
     const normalized = normalizeText(nombre);
 
-    // Aquí asignamos ambos valores
+    // Validación de duplicados
+    const exists = existingData.some((item) => {
+      const itemNombre = item.nombre_original || item.nombre || "";
+      return normalizeText(itemNombre) === normalized;
+    });
+
+    if (exists) {
+      toast.error(`La ${entityLabels[entityType] || 'entidad'}: "${original}" ya fue creada.`);
+      return; 
+    }
+
+    // Construcción del objeto
     const data = {
       nombre: normalized,
       nombre_original: original,
@@ -37,7 +49,13 @@ export function EntityForm({ entityType, facultades, onSubmit, onCancel }) {
 
     console.log("📌 Datos enviados:", data);
 
+    // 1. Enviamos los datos al padre
     onSubmit(data);
+
+    // 2. ✅ Mostramos el Toast de Éxito
+    toast.success(`${entityLabels[entityType]} creada exitosamente.`);
+
+    // 3. Limpiamos el formulario
     setNombre("");
     setFacultadId("");
   };

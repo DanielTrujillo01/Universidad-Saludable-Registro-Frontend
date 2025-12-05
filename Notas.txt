@@ -1,0 +1,2 @@
+Corregir la creacion de Entidades
+Añadir Posibilidad de Update de los datos de las entidades

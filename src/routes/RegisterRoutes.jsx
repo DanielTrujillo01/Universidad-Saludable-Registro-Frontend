@@ -2,8 +2,9 @@ import { Routes, Route } from "react-router-dom";
 import { Home } from "../pages/Home";
 import {RegistroPersonas} from "../Pages/RegistroPersonas";
 import {CreacionEntidades} from "../Pages/CreacionEntidades";
-import {ActivityModal} from "../components/ActivityModal";
-
+import { DashBoard } from "../pages/DashBoard";
+import  ProtectedRoute  from "../components/ProtectedRoute";
+import { Login } from "../pages/Login";
 /**
  * Router component for the Meeting5 application.
  *
@@ -17,6 +18,10 @@ const RegisterRoutes = () => {
         <Route path="/" element={<Home />} />
         <Route path="/registro-personas" element={<RegistroPersonas />} />
         <Route path="/creacion-entidades" element={<CreacionEntidades />} />
+        <Route path="/login" element={<Login />} />
+        {<Route element={<ProtectedRoute />}>
+           <Route path="/dashboard" element={<DashBoard />} />
+        </Route> }
       </Routes>
   );
 };

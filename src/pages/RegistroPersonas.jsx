@@ -1,14 +1,12 @@
 import { useState, useEffect } from "react";
 import { PersonForm } from "../components/PersonForm";
 import { PersonList } from "../components/PersonList";
-import {
-  UserPlus,
-  ArrowLeft,
-  PlusCircle,
-} from "lucide-react";
+// 1. Agregamos 'Settings' a los imports
+import { UserPlus, ArrowLeft, PlusCircle, Settings } from "lucide-react"; 
 import { useNavigate } from "react-router-dom";
 import { ActivityModal } from "../components/ActivityModal";
 import { apiRequest, API_ENDPOINTS } from "../api/api";
+import { PersonSearchAndRegister } from "../components/PersonSearchAndRegister";
 
 export function RegistroPersonas() {
   const navigate = useNavigate();
@@ -33,7 +31,6 @@ export function RegistroPersonas() {
 
   const canRegister = selectedActivity && selectedDate;
 
-  /** === FETCH ENTITIES EXACTLY LIKE EntityForm.jsx === **/
   useEffect(() => {
     async function fetchData() {
       for (const type of Object.keys(API_ENDPOINTS)) {
@@ -48,42 +45,70 @@ export function RegistroPersonas() {
     fetchData();
   }, []);
 
-  const handlePersonSubmit = (data) => {
-    const newPerson = {
-      id: crypto.randomUUID(),
-      actividadConsolidada: selectedActivity,
+const handlePersonSubmit = async (personaId, sedeId) => {
+    
+    // Validaciones de seguridad
+    if (!personaId || !sedeId || !selectedActivity || !selectedDate) {
+      alert("Faltan datos para registrar la participación");
+      return;
+    }
+
+    const body = {
+      persona: personaId,
+      actividad: selectedActivity,
+      sede: sedeId, // 👈 AGREGADO: Se envía la sede
       fecha: selectedDate,
-      ...data,
+      anio: new Date(selectedDate).getFullYear(),
     };
 
-    setRegisteredPersons((prev) => [...prev, newPerson]);
+    try {
+      const nueva = await apiRequest("participacion", "POST", body);
+      setRegisteredPersons((prev) => [...prev, nueva]);
+    } catch (error) {
+      console.error("Error registrando participación:", error);
+      alert("Error al registrar la participación");
+    }
   };
 
   const handleDelete = (id) => {
     setRegisteredPersons((prev) => prev.filter((person) => person.id !== id));
   };
 
-  /** === ADD NEW ACTIVITY TO LIST === **/
   const handleAddActivity = (actividad) => {
     setEntities((prev) => ({
       ...prev,
-      actividadConsolidada: [...prev.actividadConsolidada, actividad],
+      actividad: [...prev.actividad, actividad],
     }));
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <button
-          onClick={() => navigate("/")}
-          className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Volver al inicio
-        </button>
+        
+        {/* === ZONA DE NAVEGACIÓN SUPERIOR === */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          
+          {/* Botón Volver */}
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 transition-colors font-medium"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Volver al inicio
+          </button>
+
+          {/* NUEVO BOTÓN: Ir a Creación de Entidades */}
+          <button
+            onClick={() => navigate("/creacion-entidades")}
+            className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-200 px-4 py-2 rounded-lg shadow-sm hover:bg-indigo-50 hover:border-indigo-300 transition-all"
+          >
+            <Settings className="w-5 h-5" />
+            Gestionar Entidades
+          </button>
+        </div>
 
         <header className="mb-8">
-          <h1 className="text-indigo-900 mb-2 flex items-center gap-3">
+          <h1 className="text-indigo-900 mb-2 flex items-center gap-3 text-2xl font-bold">
             <UserPlus className="w-8 h-8" />
             Registro de Personas
           </h1>
@@ -95,12 +120,12 @@ export function RegistroPersonas() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Panel */}
           <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
-            <h2 className="text-gray-800 mb-4">Datos de la Actividad</h2>
+            <h2 className="text-gray-800 mb-4 font-semibold">Datos de la Actividad</h2>
 
             {/* Activity Selector */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label htmlFor="actividad" className="text-gray-700">
+                <label htmlFor="actividad" className="text-gray-700 font-medium">
                   Actividad <span className="text-red-500">*</span>
                 </label>
 
@@ -117,11 +142,14 @@ export function RegistroPersonas() {
               <select
                 value={selectedActivity}
                 onChange={(e) => setSelectedActivity(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
               >
                 <option value="">Selecciona una actividad</option>
-                {entities.actividadConsolidada.map((actividad) => (
-                  <option key={actividad.id_actividad} value={actividad.id_actividad}>
+                {entities.actividad.map((actividad) => (
+                  <option
+                    key={actividad.id_actividad}
+                    value={actividad.id_actividad}
+                  >
                     {actividad.nombre_original || actividad.nombre}
                   </option>
                 ))}
@@ -130,7 +158,7 @@ export function RegistroPersonas() {
 
             {/* Date */}
             <div>
-              <label className="block text-gray-700 mb-2">
+              <label className="block text-gray-700 mb-2 font-medium">
                 Fecha <span className="text-red-500">*</span>
               </label>
               <input
@@ -145,30 +173,22 @@ export function RegistroPersonas() {
           {/* Form */}
           <div className="lg:col-span-2">
             {canRegister ? (
-              <PersonForm
-                onSubmit={handlePersonSubmit}
-                escuelas={entities.escuela}
-                facultades={entities.facultad}
-              />
+              <PersonSearchAndRegister 
+                    onSubmit={handlePersonSubmit} 
+                    escuelas={entities.escuela} 
+                    facultades={entities.facultad} 
+                    sedes={entities.sede} 
+                />
             ) : (
-              <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
-                <UserPlus className="w-16 h-16 mx-auto mb-3 opacity-50" />
-                Selecciona una actividad y fecha para empezar
+              <div className="bg-white rounded-lg shadow-md p-12 text-center text-gray-500 flex flex-col items-center justify-center h-full">
+                <UserPlus className="w-16 h-16 mb-4 text-indigo-200" />
+                <p className="text-lg font-medium">Comienza el registro</p>
+                <p className="text-sm">Selecciona una actividad y fecha para habilitar el buscador.</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* List */}
-        <div className="mt-12">
-          <PersonList
-            persons={registeredPersons}
-            activities={entities.actividadConsolidada}
-            escuelas={entities.escuela}
-            facultades={entities.facultad}
-            onDelete={handleDelete}
-          />
-        </div>
       </div>
 
       {/* Modal */}
