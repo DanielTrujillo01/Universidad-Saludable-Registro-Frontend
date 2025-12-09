@@ -1,4 +1,3 @@
-// src/pages/DashBoard.jsx
 import { useEffect, useState } from "react";
 import { apiRequest } from "../api/api"; // Importas tu función mejorada
 

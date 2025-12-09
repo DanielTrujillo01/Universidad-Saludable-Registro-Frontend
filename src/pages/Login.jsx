@@ -53,7 +53,7 @@ export function Login() {
       console.log("Login exitoso vía API Centralizada");
       
       // 5. Redirigir
-      navigate("/dashboard"); 
+      navigate("/stats"); 
 
     } catch (err) {
       console.error("Error en login:", err);

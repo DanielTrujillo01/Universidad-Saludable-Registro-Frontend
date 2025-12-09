@@ -1,4 +1,4 @@
-import { Plus, UserPlus, LayoutDashboard, ChevronRight } from 'lucide-react';
+import { Plus, UserPlus, LayoutDashboard, ChevronRight, BarChart3 } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
 
 export function Home() {
@@ -10,7 +10,6 @@ export function Home() {
       title: 'Panel de Creación',
       description: 'Crea y gestiona entidades como sedes, facultades, escuelas y más.',
       icon: Plus,
-      // Usamos gradientes para mejor contraste visual
       bgGradient: 'from-blue-500 to-blue-600',
       shadowColor: 'shadow-blue-200',
       ringColor: 'group-hover:ring-blue-100',
@@ -20,9 +19,20 @@ export function Home() {
       title: 'Registro de Personas',
       description: 'Registra nuevos usuarios para actividades, eventos y proyectos.',
       icon: UserPlus,
-      bgGradient: 'from-emerald-500 to-emerald-600', // Cambié a emerald para un verde más moderno
+      bgGradient: 'from-emerald-500 to-emerald-600',
       shadowColor: 'shadow-emerald-200',
       ringColor: 'group-hover:ring-emerald-100',
+    },
+    // --- TARJETA DE ESTADÍSTICAS / PRIVADA ---
+    {
+      id: '/stats', // Ruta protegida
+      title: 'Tablero de Control',
+      description: 'Visualiza indicadores de desempeño, métricas en tiempo real.',
+      icon: BarChart3, // Icono de Gráfico de Barras
+      // Gradiente Violeta/Fucsia: Moderno para analítica y datos
+      bgGradient: 'from-violet-600 to-fuchsia-600',
+      shadowColor: 'shadow-violet-200',
+      ringColor: 'group-hover:ring-violet-100',
     },
   ];
 
@@ -30,13 +40,8 @@ export function Home() {
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       {/* Fondo decorativo sutil */}
       <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
-      <button 
-        onClick={() => navigate('/dashboard')}
-        className="absolute top-4 right-4 bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-300 rounded-full p-3 shadow-lg"
-      >
-      DashBoard
-      </button>
-      <div className="relative max-w-5xl mx-auto w-full px-4">
+    
+      <div className="relative max-w-6xl mx-auto w-full px-4">
         
         {/* Header */}
         <header className="text-center mb-16 space-y-4">
@@ -52,7 +57,7 @@ export function Home() {
         </header>
 
         {/* Grid de Tarjetas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mx-auto">
           {sections.map((section) => {
             const Icon = section.icon;
             return (
@@ -65,10 +70,11 @@ export function Home() {
                   transition-all duration-300 ease-in-out
                   hover:-translate-y-1 hover:shadow-xl hover:border-indigo-100
                   focus:outline-none focus:ring-4 focus:ring-indigo-50
+                  h-full flex flex-col
                 `}
               >
-                <div className="flex items-start justify-between">
-                  {/* Contenedor del Icono: Perfectamente centrado con Grid */}
+                <div className="flex items-start justify-between mb-6">
+                  {/* Contenedor del Icono */}
                   <div className={`
                     w-16 h-16 rounded-2xl bg-gradient-to-br ${section.bgGradient}
                     text-white shadow-lg ${section.shadowColor}
@@ -84,7 +90,7 @@ export function Home() {
                   </div>
                 </div>
 
-                <div className="mt-6">
+                <div className="mt-auto">
                   <h2 className="text-xl font-bold text-slate-800 mb-2 group-hover:text-indigo-600 transition-colors">
                     {section.title}
                   </h2>
