@@ -1,131 +1,75 @@
-import { useState, useEffect, useCallback } from "react"; // 1. Importamos useCallback
+import { useState, useEffect, useCallback } from "react";
 import { EntitySelector } from "../components/EntitySelector";
 import { EntityForm } from "../components/EntityForm";
-import { EntityList } from "../components/EntityList";
 import { Plus, ArrowLeft, Settings, Users, X } from "lucide-react";
-import { apiRequest, API_ENDPOINTS } from "../api/api";
+import { apiRequest } from "../api/api";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner"; // Asegúrate de tener sonner instalado para notificaciones
 
 export function CreacionEntidades() {
   const navigate = useNavigate();
   const [selectedEntity, setSelectedEntity] = useState(null);
   const [showForm, setShowForm] = useState(false);
 
-  const [entities, setEntities] = useState({
-    sede: [],
-    lineaProyecto: [],
-    facultad: [],
-    escuela: [],
-    indicador: [],
-    actividadConsolidada: [],
-    tema: [],
-    prioridad: [],
-    lineaEstrategia: [],
-  });
-
-  const ALLOWED_ENTITIES = [
-    "sede",
-    "facultad",
-    "escuela",
-    "lineaProyecto",
-    "lineaEstrategia",
-    "tema",
-    "prioridad",
-    "indicador",
-    "actividadConsolidada",
-  ];
-
-  useEffect(() => {
-    async function fetchEntities() {
-      for (const type of Object.keys(API_ENDPOINTS)) {
-        try {
-          const data = await apiRequest(type, "GET");
-          setEntities((prev) => ({ ...prev, [type]: data }));
-        } catch (error) {
-          console.error(`Error cargando ${type}:`, error);
-        }
-      }
-    }
-    fetchEntities();
-  }, []);
-
-  // Función para cerrar/cancelar
+  // Función para cerrar/cancelar el formulario
   const handleCancel = useCallback(() => {
     setShowForm(false);
     setSelectedEntity(null);
   }, []);
 
-  // === NUEVO: Escuchar tecla Escape ===
+  // === Escuchar tecla Escape para cerrar ===
   useEffect(() => {
     const handleKeyDown = (event) => {
-      // Si presiona Escape y el formulario está visible
       if (event.key === "Escape" && showForm) {
         handleCancel();
       }
     };
-
-    // Agregamos el listener
     window.addEventListener("keydown", handleKeyDown);
-
-    // Limpiamos el listener al desmontar o cambiar showForm
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showForm, handleCancel]);
 
+  // Manejador de selección del menú lateral
   const handleEntitySelect = (entityType) => {
-    // Si ya está seleccionada la misma, la deseleccionamos (toggle)
     if (selectedEntity === entityType) {
-      handleCancel();
+      handleCancel(); // Si toca el mismo, cierra (toggle)
     } else {
       setSelectedEntity(entityType);
       setShowForm(true);
     }
   };
 
+  // Manejo del envío del formulario (POST al Backend)
   const handleFormSubmit = async (data) => {
     if (!selectedEntity) return;
-    try {
-      const newEntity = await apiRequest(selectedEntity, "POST", data);
-      setEntities((prev) => ({
-        ...prev,
-        [selectedEntity]: [...prev[selectedEntity], newEntity],
-      }));
-      handleCancel(); // Cerramos al guardar
-    } catch (error) {
-      console.error("Error creando entidad:", error);
-    }
+
+    // Promesa para mostrar estado de carga (Opcional pero recomendado)
+    const promise = apiRequest(selectedEntity, "POST", data);
+
+    toast.promise(promise, {
+      loading: 'Creando registro...',
+      success: (newData) => {
+        handleCancel(); // Cerramos el formulario solo si tuvo éxito
+        return `${selectedEntity} creado exitosamente`;
+      },
+      error: (err) => {
+        console.error(err);
+        // Intentamos mostrar el mensaje de error del backend si existe
+        return "Error al crear. Verifica los datos o intenta nuevamente.";
+      },
+    });
   };
-
-  const handleDelete = async (entityType, id) => {
-    try {
-      await apiRequest(entityType, "DELETE", null, id);
-      setEntities((prev) => ({
-        ...prev,
-        [entityType]: prev[entityType].filter((item) => item.id !== id),
-      }));
-    } catch (error) {
-      console.error("Error eliminando entidad:", error);
-    }
-  };
-
-  const filteredEntitiesForList = Object.keys(entities)
-    .filter((key) => ALLOWED_ENTITIES.includes(key))
-    .reduce((obj, key) => {
-      obj[key] = entities[key];
-      return obj;
-    }, {});
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+      
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* NAVEGACIÓN */}
+        
+        {/* === NAVEGACIÓN SUPERIOR === */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <button
             onClick={() => navigate("/")}
-            className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 transition-colors font-medium"
+            className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 transition-colors font-medium group"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             Volver al inicio
           </button>
 
@@ -138,7 +82,7 @@ export function CreacionEntidades() {
           </button>
         </div>
 
-        {/* HEADER */}
+        {/* === HEADER === */}
         <header className="mb-8">
           <h1 className="text-indigo-900 mb-2 flex items-center gap-3 text-3xl font-bold">
             <div className="p-2 bg-indigo-100 rounded-lg">
@@ -147,41 +91,40 @@ export function CreacionEntidades() {
             Panel de Gestión de Entidades
           </h1>
           <p className="text-slate-600 max-w-2xl">
-            Selecciona una categoría del menú izquierdo para crear o eliminar
-            elementos.
+            Selecciona una categoría del menú izquierdo para crear nuevos elementos en el sistema.
           </p>
         </header>
 
-        {/* CONTENIDO */}
+        {/* === CONTENIDO PRINCIPAL (GRID) === */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Columna Izquierda: Selector */}
+          
+          {/* Columna Izquierda: SELECTOR DE ENTIDADES */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-md p-1 border border-indigo-50 overflow-hidden sticky top-6">
               <EntitySelector
                 onSelect={handleEntitySelect}
                 selectedEntity={selectedEntity}
-                disabled={false} // Quitamos disabled para permitir cambiar de entidad al vuelo
+                disabled={false}
               />
             </div>
           </div>
 
-          {/* Columna Derecha: Formulario */}
+          {/* Columna Derecha: FORMULARIO DINÁMICO */}
           <div className="lg:col-span-2">
             {showForm && selectedEntity ? (
               <div className="bg-white rounded-xl shadow-lg border border-indigo-100 overflow-hidden animate-fade-in-up">
+                
                 {/* Header del Formulario */}
                 <div className="bg-indigo-50 px-6 py-4 border-b border-indigo-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Plus className="w-5 h-5 text-indigo-600" />
                     <h3 className="font-semibold text-indigo-900 capitalize">
-                      Crear nueva{" "}
-                      {selectedEntity.replace(/([A-Z])/g, " $1").trim()}
+                      Crear nueva {selectedEntity.replace(/([A-Z])/g, " $1").trim()}
                     </h3>
                   </div>
-                  {/* Botón cerrar visual */}
                   <button
                     onClick={handleCancel}
-                    className="text-xs text-indigo-400 hover:text-indigo-700 flex items-center gap-1 transition-colors"
+                    className="text-xs text-indigo-400 hover:text-indigo-700 flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-indigo-100"
                     title="Cerrar (Esc)"
                   >
                     <span>Esc</span>
@@ -189,47 +132,36 @@ export function CreacionEntidades() {
                   </button>
                 </div>
 
+                {/* Cuerpo del Formulario */}
                 <div className="p-6">
                   <EntityForm
                     entityType={selectedEntity}
-                    facultades={entities.facultad}
-                    // 👇 AGREGAR ESTA LÍNEA: Pasamos la lista de la entidad actual (ej. sedes)
-                    existingData={entities[selectedEntity] || []}
+                    // Ya no pasamos listas gigantes, el form usa AsyncSelect
+                    existingData={[]} // Enviamos vacío (validación duplicados será backend)
                     onSubmit={handleFormSubmit}
                     onCancel={handleCancel}
                   />
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-xl shadow-md p-12 text-center border border-dashed border-slate-300 h-full flex flex-col items-center justify-center min-h-[300px]">
-                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                  <Settings className="w-10 h-10 text-slate-300" />
+              // Estado Vacío (Placeholder)
+              <div className="bg-white rounded-xl shadow-md p-12 text-center border border-dashed border-slate-300 h-full flex flex-col items-center justify-center min-h-[400px]">
+                <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                  <Settings className="w-12 h-12 text-slate-300" />
                 </div>
-                <h3 className="text-lg font-medium text-slate-700 mb-2">
-                  Panel de Trabajo
+                <h3 className="text-xl font-medium text-slate-800 mb-2">
+                  Panel de Trabajo Listo
                 </h3>
-                <p className="text-slate-500 max-w-sm">
-                  Selecciona una entidad del menú izquierdo para abrir el
-                  formulario.
+                <p className="text-slate-500 max-w-sm mx-auto">
+                  Selecciona una opción del menú de la izquierda para desplegar el formulario de creación correspondiente.
                 </p>
               </div>
             )}
           </div>
         </div>
-
-        {/* LISTADO */}
-        <div className="mt-12">
-          <div className="flex items-center gap-2 mb-6 border-b border-slate-200 pb-2">
-            <h2 className="text-2xl font-bold text-slate-800">
-              Registros del Sistema
-            </h2>
-          </div>
-
-          <EntityList
-            entities={filteredEntitiesForList}
-            onDelete={handleDelete}
-          />
-        </div>
+        
+        {/* SE ELIMINÓ LA SECCIÓN DE LISTADO INFERIOR */}
+        
       </div>
     </div>
   );

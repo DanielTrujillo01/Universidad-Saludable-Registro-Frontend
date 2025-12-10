@@ -1,8 +1,8 @@
-// src/components/EntityForm.jsx
 import { useState } from "react";
 import { Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { normalizeText } from "../Funtions/BasicFuntions"; 
+import { AsyncEntitySelect } from "./AsyncEntitySelect";
 
 const entityLabels = {
   sede: "Sede",
@@ -16,9 +16,13 @@ const entityLabels = {
   lineaEstrategia: "Línea de Estrategia",
 };
 
-export function EntityForm({ entityType, facultades, existingData = [], onSubmit, onCancel }) {
+// Ya no necesitamos recibir listas completas (facultades, actividades) como props
+export function EntityForm({ entityType, existingData = [], onSubmit, onCancel }) {
   const [nombre, setNombre] = useState("");
+  
+  // Guardamos solo los IDs seleccionados
   const [facultadId, setFacultadId] = useState("");
+  const [actividadId, setActividadId] = useState("");
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -26,7 +30,8 @@ export function EntityForm({ entityType, facultades, existingData = [], onSubmit
     const original = nombre;
     const normalized = normalizeText(nombre);
 
-    // Validación de duplicados
+    // Validación básica de duplicados locales (solo para lo que ya cargaste en la lista)
+    // Nota: Para validación total, el backend debería responder 400 si ya existe.
     const exists = existingData.some((item) => {
       const itemNombre = item.nombre_original || item.nombre || "";
       return normalizeText(itemNombre) === normalized;
@@ -37,32 +42,33 @@ export function EntityForm({ entityType, facultades, existingData = [], onSubmit
       return; 
     }
 
-    // Construcción del objeto
     const data = {
       nombre: normalized,
       nombre_original: original,
     };
 
-    if (entityType === "escuela" && facultadId) {
+    if (entityType === "escuela") {
       data.facultad = parseInt(facultadId, 10);
+    }
+    
+    // Al enviar esto, el backend (TemaViewSet.create) creará la asociación automáticamente
+    if (entityType === "tema") {
+       data.id_actividad = parseInt(actividadId, 10); 
     }
 
     console.log("📌 Datos enviados:", data);
-
-    // 1. Enviamos los datos al padre
     onSubmit(data);
-
-    // 2. ✅ Mostramos el Toast de Éxito
-    toast.success(`${entityLabels[entityType]} creada exitosamente.`);
-
-    // 3. Limpiamos el formulario
+    
+    // Limpieza
     setNombre("");
     setFacultadId("");
+    setActividadId("");
   };
 
   const isFormValid = () => {
     if (!nombre.trim()) return false;
     if (entityType === "escuela" && !facultadId) return false;
+    if (entityType === "tema" && !actividadId) return false;
     return true;
   };
 
@@ -71,6 +77,7 @@ export function EntityForm({ entityType, facultades, existingData = [], onSubmit
       <h2 className="text-gray-800 mb-6">Crear {entityLabels[entityType]}</h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Campo Nombre Normal */}
         <div>
           <label htmlFor="nombre" className="block text-gray-700 mb-2">
             Nombre <span className="text-red-500">*</span>
@@ -80,40 +87,36 @@ export function EntityForm({ entityType, facultades, existingData = [], onSubmit
             id="nombre"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
-            placeholder={`Ingresa el nombre de la ${entityLabels[
-              entityType
-            ].toLowerCase()}`}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+            placeholder={`Ingresa el nombre de la ${entityLabels[entityType]?.toLowerCase() || 'entidad'}`}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
             required
           />
         </div>
 
+        {/* SELECTOR ASÍNCRONO PARA FACULTAD (Solo Escuela) */}
         {entityType === "escuela" && (
-          <div>
-            <label htmlFor="facultad" className="block text-gray-700 mb-2">
-              Facultad <span className="text-red-500">*</span>
-            </label>
+            <AsyncEntitySelect 
+                entityType="facultad"
+                label="Facultad Perteneciente"
+                placeholder="Escribe para buscar facultad..."
+                onSelect={setFacultadId}
+                required={true}
+            />
+        )}
 
-            {facultades.length === 0 ? (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-yellow-800">
-                No hay facultades disponibles. Por favor, crea una facultad primero.
-              </div>
-            ) : (
-              <select
-                id="facultad"
-                value={facultadId}
-                onChange={(e) => setFacultadId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                required
-              >
-                <option value="">Selecciona una facultad</option>
-                {facultades.map((facultad) => (
-                  <option key={facultad.id_facultad} value={facultad.id_facultad}>
-                    {facultad.nombre_original || facultad.nombre}
-                  </option>
-                ))}
-              </select>
-            )}
+        {/* SELECTOR ASÍNCRONO PARA ACTIVIDAD (Solo Tema) */}
+        {entityType === "tema" && (
+          <div>
+            <AsyncEntitySelect 
+                entityType="actividad"
+                label="Actividad Asociada"
+                placeholder="Escribe para buscar actividad..."
+                onSelect={setActividadId}
+                required={true}
+            />
+             <p className="text-xs text-gray-500 mt-1 bg-blue-50 p-2 rounded border border-blue-100">
+               <span className="font-bold">Nota:</span> Al guardar, el sistema creará el tema y lo vinculará automáticamente a esta actividad.
+             </p>
           </div>
         )}
 

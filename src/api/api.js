@@ -4,40 +4,37 @@ import axios from "axios";
 export const API_BASE = "http://127.0.0.1:8000/api/";
 
 export const API_ENDPOINTS = {
+  // ... tus endpoints de siempre ...
   sede: "sedes",
   lineaProyecto: "lineas-proyecto",
   facultad: "facultades",
   escuela: "escuelas",
   persona: "personas",
-  indicadores: "indicadores",
+  indicador: "indicadores",
   actividadConsolidada: "actividades-consolidadas",
   tema: "temas",
   prioridad: "prioridades",
   lineaEstrategia: "lineas-estrategia",
   actividad: "actividades",
   participacion: "participaciones",
-  login: "token",
-
-  // URL base del viewset (generalmente no se llama directamente sin acción)
+  
+  login: "token/",          // Login (devuelve access + refresh)
+  refresh: "token/refresh", // Endpoint para refrescar
+  
+  // Dashboard
   dashboard: "dashboard-stats", 
-  
   dashboardResumen: "dashboard-stats/resumen", 
-  
   dashboardIndicador: "dashboard-stats/por_indicador",
-
   dashboardPrioridad: "dashboard-stats/por_prioridad",
-
   dashboardEstrategia: "dashboard-stats/por_estrategia",
-
   dashboardSede: "dashboard-stats/por_sede",
-
   dashboardEscuela: "dashboard-stats/por_escuela",
-
   dashboardFacultad: "dashboard-stats/por_facultad",
+  dashboardDetalleActividad: "dashboard-stats/detalle_actividad",
+  dashboardTiempoStats: "dashboard-stats/por_tiempo_stats",
+  dashboardTiempoDetalle: "dashboard-stats/detalle_rango_tiempo",
 };
 
-// 1. Crear una instancia de Axios
-// Esto nos permite configurar comportamientos globales
 const apiClient = axios.create({
   baseURL: API_BASE,
   headers: {
@@ -45,71 +42,109 @@ const apiClient = axios.create({
   },
 });
 
-// 2. Configurar el Interceptor de Respuesta
-// Este "vigilante" revisa todas las respuestas que llegan del backend
+// --- INTERCEPTOR INTELIGENTE (REFRESH TOKEN) ---
 apiClient.interceptors.response.use(
   (response) => {
-    // Si la respuesta es exitosa (200-299), la dejamos pasar
     return response;
   },
-  (error) => {
-    // Si hay un error, revisamos si es un 401 (No autorizado)
-    if (error.response && error.response.status === 401) {
-      console.warn("Sesión expirada detectada por Interceptor. Redirigiendo...");
-      
-      // A. Limpiamos el token (asegúrate que el nombre coincida con el que usas al hacer login)
-      // Nota: En tu código anterior usabas 'token', aquí veo 'access_token'.
-      // He puesto ambos para asegurar que se limpie todo.
-      localStorage.removeItem('access_token'); 
-      localStorage.removeItem('token'); 
+  async (error) => {
+    const originalRequest = error.config;
 
-      // B. Redirigimos forzosamente al Login
-      // Usamos window.location.href en lugar de navigate() porque este archivo no es un componente React
-      window.location.href = "/login";
+    // Si el error es 401 y NO es un reintento (para evitar bucles infinitos)
+    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+      
+      // Marcamos que ya intentamos refrescar esta petición
+      originalRequest._retry = true;
+
+      try {
+        console.log("🔄 Access Token vencido. Intentando refrescar...");
+        
+        // 1. Obtenemos el refresh token guardado
+        const refreshToken = localStorage.getItem('refresh_token');
+
+        if (!refreshToken) {
+            throw new Error("No hay refresh token disponible.");
+        }
+
+        // 2. Llamamos al endpoint de refresh (usamos axios puro para evitar interceptores aquí)
+        const response = await axios.post(`${API_BASE}${API_ENDPOINTS.refresh}/`, {
+            refresh: refreshToken
+        });
+
+        // 3. Si éxito: Guardamos el nuevo access token
+        const newAccessToken = response.data.access;
+        const newRefreshToken = response.data.refresh;
+
+        localStorage.setItem('access_token', newAccessToken);
+
+        // IMPORTANTE: Si el servidor envió un nuevo refresh token (rotación), guárdalo.
+        if (newRefreshToken) {
+            localStorage.setItem('refresh_token', newRefreshToken);
+        }
+        
+        // 4. Actualizamos el header de la petición original fallida
+        originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+
+        // 5. Reintentamos la petición original con el nuevo token
+        return apiClient(originalRequest);
+
+      } catch (refreshError) {
+        // SI FALLA EL REFRESH (ej: expiró el refresh token o fue revocado)
+        console.warn("❌ Sesión caducada irremediablemente. Cerrando sesión...");
+        
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token'); // Limpiamos todo
+        localStorage.removeItem('token');
+
+        // Solo redirigimos si estamos en una ruta privada
+        const currentPath = window.location.pathname;
+        const isPrivateRoute = currentPath.startsWith('/dashboard') || 
+                               currentPath.startsWith('/creacion-entidades');
+
+        if (isPrivateRoute) {
+           window.location.href = "/login";
+        }
+        
+        return Promise.reject(refreshError);
+      }
     }
+
     return Promise.reject(error);
   }
 );
 
-// Modificar la función para aceptar 'query' o 'id'. Usaremos 'query'
 export async function apiRequest(entityType, method = "GET", body = null, queryOrId = null) {
-  
     const endpoint = API_ENDPOINTS[entityType];
-    // Nota: Como ahora usamos apiClient con baseURL, solo necesitamos la parte relativa de la URL
-    // Pero para mantener tu lógica de construcción de URL intacta, lo manejaremos así:
     
-    let url = endpoint; // Ya no necesitamos API_BASE aquí porque está en la instancia
+    if (!endpoint) {
+        console.error(`🚨 Error: Endpoint no definido para: ${entityType}`);
+        throw new Error(`Endpoint no definido para: ${entityType}`);
+    }
 
-    // Paso 1: Determinar si es un Query String o un ID de ruta
+    let url = endpoint; 
+
     if (queryOrId) {
         if (typeof queryOrId === 'string' && queryOrId.startsWith('?')) {
-            // Caso de BÚSQUEDA/FILTRO
             url = `${url}${queryOrId}`;
         } else {
-            // Caso de ID
             url = `${url}/${queryOrId}/`;
         }
     } else {
-        // Caso de LISTA
         if (!url.endsWith('/')) {
             url = `${url}/`;
         }
     }
     
-    // ---------------------------------------------------------
-    // 2. LÓGICA DE TOKEN
-    // ---------------------------------------------------------
-    // Nota importante: Revisa si tu backend guardó el token como 'token' o 'access_token'
+    // Siempre intentamos leer el token más reciente del storage
     const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-    
-    const headers = {}; // Content-Type ya está en la instancia base
+    const headers = {}; 
 
     if (token) {
         headers["Authorization"] = `Bearer ${token}`;
     }
 
     try {
-        // USAMOS apiClient en lugar de axios directo
         const response = await apiClient({
             url, 
             method,
@@ -118,7 +153,9 @@ export async function apiRequest(entityType, method = "GET", body = null, queryO
         });
         return response.data;
     } catch (error) {
-        // El interceptor ya manejó el 401 arriba, aquí solo logueamos otros errores
+        // El error ya pasó por el interceptor. 
+        // Si fue 401 y se refrescó, no llegamos aquí.
+        // Si llegamos aquí, es un error real (500, 404, o 401 fatal).
         console.error(`Error en API (${entityType}):`, error);
         throw error;
     }

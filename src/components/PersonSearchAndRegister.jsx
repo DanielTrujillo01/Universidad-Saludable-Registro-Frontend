@@ -1,23 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Save,
-  Search,
-  UserPlus,
-  FileText,
-  Loader2,
-  RotateCcw,
-  PlusCircle,
-  ArrowLeft,
-  MapPin, 
+  Save, Search, UserPlus, FileText, Loader2, RotateCcw,
+  PlusCircle, ArrowLeft, MapPin, BookOpen 
 } from "lucide-react";
 import { apiRequest } from "../api/api";
 import { PersonFormFields } from "./PersonFormFields";
-// 1. IMPORTAR LA FUNCIÓN DE NORMALIZACIÓN
 import { normalizeText } from "../Funtions/BasicFuntions"; 
 
-export function PersonSearchAndRegister({ onSubmit, escuelas, facultades, sedes }) {
+// Recibimos 'temas' como prop
+export function PersonSearchAndRegister({ onSubmit, escuelas, facultades, sedes, temas }) {
   
   const [selectedSede, setSelectedSede] = useState("");
+  const [selectedTema, setSelectedTema] = useState(""); // Nuevo estado
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,33 +33,23 @@ export function PersonSearchAndRegister({ onSubmit, escuelas, facultades, sedes 
   const [isNewPersonMode, setIsNewPersonMode] = useState(false);
   const debounceTimeout = useRef(null);
 
+  // Búsqueda con debounce
   useEffect(() => {
     if (searchTerm.length < 3 || isNewPersonMode || selectedPerson) {
       setSearchResults([]);
       return;
     }
-
-    if (debounceTimeout.current) {
-      clearTimeout(debounceTimeout.current);
-    }
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
 
     debounceTimeout.current = setTimeout(async () => {
       setIsLoading(true);
       try {
         const cleanedSearchTerm = searchTerm.trim().replace(/\/+$/, "");
-        
         if (!cleanedSearchTerm) {
           setSearchResults([]);
-          setIsLoading(false);
           return;
         }
-
-        const res = await apiRequest(
-          "persona",
-          "GET",
-          null,
-          `?search=${cleanedSearchTerm}`
-        );
+        const res = await apiRequest("persona", "GET", null, `?search=${cleanedSearchTerm}`);
         setSearchResults(res);
       } catch (error) {
         console.error("Error buscando:", error);
@@ -73,9 +58,7 @@ export function PersonSearchAndRegister({ onSubmit, escuelas, facultades, sedes 
       }
     }, 500);
 
-    return () => {
-      if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-    };
+    return () => { if (debounceTimeout.current) clearTimeout(debounceTimeout.current); };
   }, [searchTerm, isNewPersonMode, selectedPerson]);
 
   const resetAll = () => {
@@ -84,6 +67,7 @@ export function PersonSearchAndRegister({ onSubmit, escuelas, facultades, sedes 
     setSelectedPerson(null);
     setFormData(initialState);
     setIsNewPersonMode(false);
+    // No reseteamos Sede ni Tema intencionalmente
   };
 
   const handleSwitchToNewPerson = () => {
@@ -100,70 +84,50 @@ export function PersonSearchAndRegister({ onSubmit, escuelas, facultades, sedes 
 
   const isFormValid = () => {
     const { nombre, tipoDocumento, numeroDocumento, correo, estamento, escuelaId } = formData;
-    return (
-      nombre.trim() &&
-      tipoDocumento &&
-      numeroDocumento.trim() &&
-      correo.trim() &&
-      estamento &&
-      escuelaId
-    );
+    return nombre.trim() && tipoDocumento && numeroDocumento.trim() && correo.trim() && estamento && escuelaId;
   };
 
   const handleFinalSubmit = async (e) => {
     e.preventDefault();
 
-    if (!selectedSede) {
-      alert("Por favor seleccione una Sede.");
+    // Validación de selectores superiores
+    if (!selectedSede || !selectedTema) {
+      alert("Por favor seleccione la Sede y el Tema/Taller de participación.");
       return;
     }
 
     if (selectedPerson) {
-      // Caso 1: Persona existente + Sede
-      onSubmit(selectedPerson.id_persona, selectedSede);
+      // Caso 1: Persona existente. Enviamos ID persona + ID sede + ID tema
+      onSubmit(selectedPerson.id_persona, selectedSede, selectedTema);
       resetAll();
     } else if (isNewPersonMode && isFormValid()) {
-      // Caso 2: Nueva persona + Sede
+      // Caso 2: Persona nueva
       try {
-        console.log("📌 Id de la escuela enviada:", formData.escuelaId);
-        // === 2. CONSTRUCCIÓN DE DATOS PARA EL MODELO DJANGO ===
-        // Mapeamos camelCase (React) a snake_case (Django Model)
         const dataToSave = {
-          // Campos directos (mismo nombre o sin cambios lógicos)
           edad: formData.edad,
           correo: formData.correo,
           sexo: formData.sexo,
           telefono: formData.telefono,
           estamento: formData.estamento,
-
-          // Campos normalizados y originales (según tu modelo)
-          nombre: normalizeText(formData.nombre),     // models.CharField (normalizado)
-          nombre_original: formData.nombre,           // models.CharField (original)
-          
-          // Campos renombrados a snake_case
-          tipo_documento: formData.tipoDocumento,     // React: tipoDocumento -> Django: tipo_documento
-          tipo_documento_original: formData.tipoDocumento, // (Opcional) si quieres guardar el original también
-          numero_documento: formData.numeroDocumento, // React: numeroDocumento -> Django: numero_documento
-          
-          // Foreign Key
-          escuela: parseInt(formData.escuelaId, 10)   // React: escuelaId -> Django: escuela
+          nombre: normalizeText(formData.nombre),
+          nombre_original: formData.nombre,
+          tipo_documento: formData.tipoDocumento,
+          tipo_documento_original: formData.tipoDocumento,
+          numero_documento: formData.numeroDocumento,
+          escuela: parseInt(formData.escuelaId, 10)
         };
 
-        console.log("📌 Datos enviados al backend (formato Django):", dataToSave);
-        
         const newPersona = await apiRequest("persona", "POST", dataToSave);
-        
-        onSubmit(newPersona.id_persona, selectedSede);
-        
+        onSubmit(newPersona.id_persona, selectedSede, selectedTema);
         resetAll();
       } catch (error) {
         console.error("Error creando persona:", error);
-        alert("Error al guardar la persona. Verifica la consola.");
+        alert("Error al guardar la persona.");
       }
     }
   };
 
-  const canSubmit = selectedSede && (selectedPerson || (isNewPersonMode && isFormValid()));
+  const canSubmit = selectedSede && selectedTema && (selectedPerson || (isNewPersonMode && isFormValid()));
 
   return (
     <div className="bg-white rounded-lg shadow-xl p-6 border-t-4 border-indigo-500">
@@ -174,53 +138,77 @@ export function PersonSearchAndRegister({ onSubmit, escuelas, facultades, sedes 
 
       <form onSubmit={handleFinalSubmit} className="space-y-6">
         
-        {/* === SELECTOR DE SEDE === */}
-        <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-          <label className="block text-indigo-900 font-semibold mb-2 flex items-center gap-2">
-            <MapPin className="w-4 h-4" />
-            Seleccione la Sede de Participación <span className="text-red-500">*</span>
-          </label>
-          <select
-            value={selectedSede}
-            onChange={(e) => setSelectedSede(e.target.value)}
-            className="w-full px-4 py-2 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
-          >
-            <option value="">-- Seleccionar Sede --</option>
-            {sedes && sedes.map((sede) => (
-              <option key={sede.id_sede} value={sede.id_sede}>
-                {sede.nombre_original || sede.nombre}
-              </option>
-            ))}
-          </select>
+        {/* === SELECTORES DE CONTEXTO (SEDE Y TEMA) === */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* SELECTOR SEDE */}
+            <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+                <label className="block text-indigo-900 font-semibold mb-2 flex items-center gap-2 text-sm">
+                    <MapPin className="w-4 h-4" />
+                    Sede <span className="text-red-500">*</span>
+                </label>
+                <select
+                    value={selectedSede}
+                    onChange={(e) => setSelectedSede(e.target.value)}
+                    className="w-full px-3 py-2 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white text-sm"
+                >
+                    <option value="">-- Seleccionar --</option>
+                    {sedes && sedes.map((sede) => (
+                    <option key={sede.id_sede} value={sede.id_sede}>
+                        {sede.nombre_original || sede.nombre}
+                    </option>
+                    ))}
+                </select>
+            </div>
+
+            {/* SELECTOR TEMA (DINÁMICO SEGÚN ACTIVIDAD) */}
+            <div className="bg-pink-50 p-4 rounded-lg border border-pink-100">
+                <label className="block text-pink-900 font-semibold mb-2 flex items-center gap-2 text-sm">
+                    <BookOpen className="w-4 h-4" />
+                    Tema / Taller <span className="text-red-500">*</span>
+                </label>
+                {temas && temas.length > 0 ? (
+                    <select
+                        value={selectedTema}
+                        onChange={(e) => setSelectedTema(e.target.value)}
+                        className="w-full px-3 py-2 border border-pink-200 rounded-lg focus:ring-2 focus:ring-pink-500 bg-white text-sm"
+                    >
+                        <option value="">-- Seleccionar Tema --</option>
+                        {temas.map((item) => (
+                            <option key={item.id_tema} value={item.id_tema}>
+                                {item.nombre_original || item.nombre}
+                            </option>
+                        ))}
+                    </select>
+                ) : (
+                    <div className="text-sm text-pink-600 italic bg-white/50 p-2 rounded">
+                        No hay temas asociados. Se guardará sin tema específico si el sistema lo permite.
+                    </div>
+                )}
+            </div>
         </div>
 
-        {/* === LÓGICA DE BÚSQUEDA === */}
+        {/* === BÚSQUEDA === */}
         {!isNewPersonMode && (
           <div className="space-y-4">
             <div className="relative">
-              <label htmlFor="search" className="block text-gray-700 mb-2 font-medium">
+              <label className="block text-gray-700 mb-2 font-medium">
                 Buscar Persona <span className="text-red-500">*</span>
               </label>
               <div className="flex">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
-                  id="search"
                   value={searchTerm}
-                  onChange={(e) => {
-                    let value = e.target.value;
-                    if (value.endsWith("/")) value = value.slice(0, -1);
-                    setSearchTerm(value);
-                  }}
+                  onChange={(e) => setSearchTerm(e.target.value.replace(/\/+$/, ""))}
                   placeholder="Nombre o Documento (mín. 3 caracteres)"
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all"
                   disabled={!!selectedPerson}
                 />
-                {isLoading && (
-                  <Loader2 className="animate-spin absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-500" />
-                )}
+                {isLoading && <Loader2 className="animate-spin absolute right-3 top-1/2 w-5 h-5 text-indigo-500" />}
               </div>
 
+              {/* Resultados Dropdown */}
               {searchTerm.length >= 3 && !selectedPerson && searchResults.length > 0 && (
                 <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-xl">
                   {searchResults.map((person) => (
@@ -230,47 +218,36 @@ export function PersonSearchAndRegister({ onSubmit, escuelas, facultades, sedes 
                         setSelectedPerson(person);
                         setSearchResults([]);
                       }}
-                      className="px-4 py-3 cursor-pointer hover:bg-indigo-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                      className="px-4 py-3 cursor-pointer hover:bg-indigo-50 border-b border-gray-100 transition-colors"
                     >
                       <div className="font-bold text-gray-800">{person.nombre_original || person.nombre}</div>
-                      <div className="text-sm text-gray-500">
-                        {person.tipo_documento}: {person.numero_documento}
-                      </div>
+                      <div className="text-sm text-gray-500">{person.tipo_documento}: {person.numero_documento}</div>
                     </li>
                   ))}
                 </ul>
               )}
             </div>
 
+            {/* Persona Seleccionada Card */}
             {selectedPerson && (
               <div className="bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg flex items-center justify-between animate-fade-in">
                 <div>
-                  <span className="block text-xs text-green-600 font-bold uppercase tracking-wider">Persona Seleccionada</span>
+                  <span className="block text-xs text-green-600 font-bold uppercase">Persona Seleccionada</span>
                   <span className="font-medium flex items-center gap-2 text-lg">
-                    <FileText className="w-5 h-5" /> 
-                    {selectedPerson.nombre_original || selectedPerson.nombre}
+                    <FileText className="w-5 h-5" /> {selectedPerson.nombre_original || selectedPerson.nombre}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPerson(null)}
-                  className="text-green-700 hover:text-green-900 text-sm font-medium underline"
-                >
+                <button type="button" onClick={() => setSelectedPerson(null)} className="text-green-700 font-medium underline">
                   Cambiar
                 </button>
               </div>
             )}
 
+            {/* No resultados */}
             {searchTerm.length >= 3 && searchResults.length === 0 && !isLoading && !selectedPerson && (
-              <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-3">
-                <span className="text-amber-800">
-                  No se encontraron resultados para "<strong>{searchTerm}</strong>"
-                </span>
-                <button
-                  type="button"
-                  onClick={handleSwitchToNewPerson}
-                  className="whitespace-nowrap bg-amber-100 text-amber-800 hover:bg-amber-200 px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1 transition-colors"
-                >
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg flex justify-between items-center">
+                <span className="text-amber-800">No hay resultados para "<strong>{searchTerm}</strong>"</span>
+                <button type="button" onClick={handleSwitchToNewPerson} className="bg-amber-100 text-amber-800 px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1">
                   <PlusCircle className="w-4 h-4" /> Registrar Nuevo
                 </button>
               </div>
@@ -278,46 +255,25 @@ export function PersonSearchAndRegister({ onSubmit, escuelas, facultades, sedes 
           </div>
         )}
 
-        {/* === FORMULARIO NUEVA PERSONA === */}
+        {/* === MODO NUEVA PERSONA === */}
         {isNewPersonMode && (
           <div className="border border-gray-200 p-5 rounded-lg bg-gray-50/50">
-            <div className="flex justify-between items-center mb-5 border-b border-gray-200 pb-3">
+            <div className="flex justify-between items-center mb-5 border-b pb-3">
               <h3 className="text-lg font-semibold text-gray-700">Datos Personales</h3>
-              <button
-                type="button"
-                onClick={resetAll}
-                className="text-indigo-600 hover:text-indigo-800 text-sm flex items-center gap-1 font-medium"
-              >
+              <button type="button" onClick={resetAll} className="text-indigo-600 text-sm flex items-center gap-1 font-medium">
                 <ArrowLeft className="w-4 h-4" /> Volver a Búsqueda
               </button>
             </div>
-
-            <PersonFormFields
-              formData={formData}
-              handleChange={handleFormChange}
-              escuelas={escuelas}
-              facultades={facultades}
-            />
+            <PersonFormFields formData={formData} handleChange={handleFormChange} escuelas={escuelas} facultades={facultades} />
           </div>
         )}
 
-        {/* === BOTONES DE ACCIÓN === */}
+        {/* === BOTONES === */}
         <div className="flex gap-3 pt-4 border-t border-gray-100">
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className="flex-1 bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-md hover:shadow-lg disabled:shadow-none font-medium"
-          >
-            <Save className="w-5 h-5" />
-            {selectedPerson ? "Confirmar Participación" : "Guardar y Confirmar"}
+          <button type="submit" disabled={!canSubmit} className="flex-1 bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-md font-medium flex justify-center gap-2 transition-all">
+            <Save className="w-5 h-5" /> {selectedPerson ? "Confirmar Participación" : "Guardar y Confirmar"}
           </button>
-          
-          <button
-            type="button"
-            onClick={resetAll}
-            className="px-4 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2 font-medium"
-            title="Limpiar formulario"
-          >
+          <button type="button" onClick={resetAll} className="px-4 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors">
             <RotateCcw className="w-5 h-5" />
           </button>
         </div>
