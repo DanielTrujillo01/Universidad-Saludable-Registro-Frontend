@@ -1,7 +1,15 @@
 // src/api.js
 import axios from "axios";
 
-export const API_BASE = "http://127.0.0.1:8000/api/";
+// --- CAMBIO AQUÍ ---
+// Buscamos la variable de entorno.
+// Si usas VITE (lo más común hoy en día), es import.meta.env.VITE_API_URL
+// Si usas Create React App o Next.js, sería process.env.REACT_APP_API_URL
+const ENV_URL = import.meta.env.VITE_API_URL; 
+
+// Si existe la variable (Producción), úsala. Si no, usa localhost.
+export const API_BASE = ENV_URL || "http://127.0.0.1:8000/api/";
+// -------------------
 
 export const API_ENDPOINTS = {
   // ... tus endpoints de siempre ...
