@@ -1,7 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import { Home } from "../pages/Home";
-import { RegistroPersonas } from "../Pages/RegistroPersonas";
-import { CreacionEntidades } from "../Pages/CreacionEntidades";
+import { RegistroPersonas } from "../pages/RegistroPersonas";
+import { CreacionEntidades } from "../pages/CreacionEntidades";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { Login } from "../pages/Login";
 import { StatsPage } from "../pages/StatsViews";
