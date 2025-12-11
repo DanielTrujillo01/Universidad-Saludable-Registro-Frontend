@@ -1,0 +1,11 @@
+Corregir la creacion de Entidades
+Añadir Posibilidad de Update de los datos de las entidades
+
+
+En la creacion de Actividades permitir la asociacion de:
+Linea de proyecto
+Prioridad
+Linea de estrategia
+Tema
+
+Hacer un modal para asociar temas a un actividad
