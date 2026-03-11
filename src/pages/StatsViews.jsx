@@ -106,7 +106,7 @@ export function StatsPage() {
         </div>
       </header>
 
-      <nav className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-10">
+      <nav className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex overflow-x-auto gap-2 py-4 no-scrollbar">
             {navItems.map((item) => {

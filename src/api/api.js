@@ -1,18 +1,14 @@
 // src/api.js
 import axios from "axios";
 
-// --- CAMBIO AQUÍ ---
-// Buscamos la variable de entorno.
-// Si usas VITE (lo más común hoy en día), es import.meta.env.VITE_API_URL
-// Si usas Create React App o Next.js, sería process.env.REACT_APP_API_URL
+
 const ENV_URL = import.meta.env.VITE_API_URL; 
 
-// Si existe la variable (Producción), úsala. Si no, usa localhost.
+
 export const API_BASE = ENV_URL || "http://127.0.0.1:8000/api/";
-// -------------------
+
 
 export const API_ENDPOINTS = {
-  // ... tus endpoints de siempre ...
   sede: "sedes",
   lineaProyecto: "lineas-proyecto",
   facultad: "facultades",
@@ -26,8 +22,8 @@ export const API_ENDPOINTS = {
   actividad: "actividades",
   participacion: "participaciones",
   
-  login: "token/",          // Login (devuelve access + refresh)
-  refresh: "token/refresh", // Endpoint para refrescar
+  login: "token/",          
+  refresh: "token/refresh", 
   
   // Dashboard
   dashboard: "dashboard-stats", 
@@ -36,11 +32,15 @@ export const API_ENDPOINTS = {
   dashboardPrioridad: "dashboard-stats/por_prioridad",
   dashboardEstrategia: "dashboard-stats/por_estrategia",
   dashboardSede: "dashboard-stats/por_sede",
+  dashboardSedeDetalle: "dashboard-stats/detalle_sede",
   dashboardEscuela: "dashboard-stats/por_escuela",
+  dashboardEscuelaDetalle: "dashboard-stats/detalle_escuela",
   dashboardFacultad: "dashboard-stats/por_facultad",
+  dashboardFacultadDetalle: "dashboard-stats/detalle_facultad",
   dashboardDetalleActividad: "dashboard-stats/detalle_actividad",
   dashboardTiempoStats: "dashboard-stats/por_tiempo_stats",
   dashboardTiempoDetalle: "dashboard-stats/detalle_rango_tiempo",
+  dashboardActividadDetalleRange: "dashboard-stats/detalle_actividad_range",
 };
 
 const apiClient = axios.create({
@@ -144,6 +144,7 @@ export async function apiRequest(entityType, method = "GET", body = null, queryO
         }
     }
     
+    console.log(`📡 API Request: ${method} ${url} | Body:`, body);
     // Siempre intentamos leer el token más reciente del storage
     const token = localStorage.getItem('access_token') || localStorage.getItem('token');
     const headers = {}; 
