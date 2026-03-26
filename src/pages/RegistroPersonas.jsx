@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { UserPlus, ArrowLeft, Settings, PlusCircle } from "lucide-react"; 
+import { UserPlus, ArrowLeft, Settings, PlusCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Toaster, toast } from "sonner"; 
+import { Toaster, toast } from "sonner";
 
 import { PersonSearchAndRegister } from "../components/PersonSearchAndRegister";
 import { ActivityModal } from "../components/ActivityModal";
-import { AsyncEntitySelect } from "../components/AsyncEntitySelect"; 
+import { AsyncEntitySelect } from "../components/AsyncEntitySelect";
 import { apiRequest, API_ENDPOINTS } from "../api/api";
 
 export function RegistroPersonas() {
@@ -16,26 +16,40 @@ export function RegistroPersonas() {
     sede: [],
     facultad: [],
     escuela: [],
-    prioridad: [],       
-    lineaEstrategia: [], 
+    prioridad: [],
+    lineaEstrategia: [],
   });
 
   // Estados de la sesión
+  const [selectedAccionId, setSelectedAccionId] = useState("");
   const [selectedActivityId, setSelectedActivityId] = useState("");
+  const [selectedTemaId, setSelectedTemaId] = useState("");
+  const [selectedSedeId, setSelectedSedeId] = useState("");
+
+  //estados de carga dinámica
+  const [loadingActivities, setLoadingActivities] = useState(false);
+  const [loadingTemas, setLoadingTemas] = useState(false);
+
   const [selectedDate, setSelectedDate] = useState("");
-  const [availableTemas, setAvailableTemas] = useState([]); // Nuevo estado para temas filtrados
-  const [registeredPersons, setRegisteredPersons] = useState([]); 
+  const [availableTemas, setAvailableTemas] = useState([]);
+  const [availableActivities, setAvailableActivities] = useState([]);
+  const [registeredPersons, setRegisteredPersons] = useState([]);
   const [showModal, setShowModal] = useState(false);
 
-  const canRegister = selectedActivityId && selectedDate;
+  const canRegister =
+    selectedAccionId &&
+    selectedActivityId &&
+    selectedSedeId &&
+    selectedDate &&
+    (availableTemas.length === 0 || selectedTemaId);
 
   // 2. WHITELIST: Carga inicial solo de datos pequeños y públicos
   const REQUIRED_ENTITIES = [
-    "sede", 
-    "facultad", 
-    "escuela", 
-    "prioridad", 
-    "lineaEstrategia"
+    "sede",
+    "facultad",
+    "escuela",
+    "prioridad",
+    "lineaEstrategia",
   ];
 
   useEffect(() => {
@@ -43,8 +57,8 @@ export function RegistroPersonas() {
       for (const type of REQUIRED_ENTITIES) {
         try {
           if (API_ENDPOINTS[type]) {
-             const res = await apiRequest(type, "GET");
-             setEntities((prev) => ({ ...prev, [type]: res }));
+            const res = await apiRequest(type, "GET");
+            setEntities((prev) => ({ ...prev, [type]: res }));
           }
         } catch (error) {
           console.error(`❌ Error cargando ${type}:`, error);
@@ -54,48 +68,88 @@ export function RegistroPersonas() {
     fetchData();
   }, []);
 
-  // 3. EFECTO NUEVO: Cargar temas cuando se selecciona una actividad
+  // 3. EFECTO NUEVO: Cargar actividades cuando se selecciona una acción
   useEffect(() => {
-    async function fetchActivityThemes() {
-      if (!selectedActivityId) {
-        setAvailableTemas([]);
+    async function fetchActivities() {
+      if (!selectedAccionId) {
+        setAvailableActivities([]);
+        setSelectedActivityId("");
         return;
       }
 
+      setLoadingActivities(true);
+
       try {
-        // Llamada al endpoint público configurado en el backend: 
-        // GET /api/actividades/{id}/temas/
-        // Esto evita usar el dashboard privado
-        const temas = await apiRequest(
-            "actividad", 
-            "GET", 
-            null, 
-            `${selectedActivityId}/temas` 
+        const actividades = await apiRequest(
+          "accion",
+          "GET",
+          null,
+          `${selectedAccionId}/actividades`,
         );
+
+        setAvailableActivities(actividades);
+      } catch (error) {
+        console.error("Error cargando actividades:", error);
+        setAvailableActivities([]);
+        toast.error("No se pudieron cargar las actividades.");
+      } finally {
+        setLoadingActivities(false);
+      }
+    }
+
+    fetchActivities();
+  }, [selectedAccionId]);
+
+  useEffect(() => {
+    async function fetchThemes() {
+      if (!selectedActivityId) {
+        setAvailableTemas([]);
+        setSelectedTemaId("");
+        return;
+      }
+
+      setLoadingTemas(true);
+
+      try {
+        const temas = await apiRequest(
+          "actividad",
+          "GET",
+          null,
+          `${selectedActivityId}/temas`,
+        );
+
         setAvailableTemas(temas);
       } catch (error) {
         console.error("Error cargando temas:", error);
         setAvailableTemas([]);
-        toast.error("No se pudieron cargar los temas de esta actividad.");
+        toast.error("No se pudieron cargar los temas.");
+      } finally {
+        setLoadingTemas(false);
       }
     }
 
-    fetchActivityThemes();
+    fetchThemes();
   }, [selectedActivityId]);
-
-
-  // 4. REGISTRAR ASISTENCIA (Recibe Tema ID)
-  const handlePersonSubmit = async (personaId, sedeId, temaId) => {
-    if (!personaId || !sedeId || !temaId || !selectedActivityId || !selectedDate) {
-      toast.warning("Faltan datos (Sede o Tema) para registrar la participación");
+  
+  // 4. REGISTRAR ASISTENCIA
+  const handlePersonSubmit = async (personaId) => {
+    if (
+      !personaId ||
+      !selectedSedeId ||
+      !selectedActivityId ||
+      !selectedDate ||
+      (availableTemas.length > 0 && !selectedTemaId)
+    ) {
+      toast.warning("Faltan datos para registrar la participación");
       return;
     }
 
     const body = {
-      persona: personaId,
-      actividad: selectedActivityId,
-      sede: sedeId,
-      tema: temaId, // <-- Enviamos el tema seleccionado
+      persona_id: personaId,
+      accion_id: selectedAccionId,
+      actividad_id: selectedActivityId,
+      sede_id: parseInt(selectedSedeId, 10),
+      tema: selectedTemaId || null,
       fecha: selectedDate,
       anio: new Date(selectedDate).getFullYear(),
     };
@@ -103,33 +157,40 @@ export function RegistroPersonas() {
     const promise = apiRequest("participacion", "POST", body);
 
     toast.promise(promise, {
-      loading: 'Registrando asistencia...',
+      loading: "Registrando asistencia...",
       success: (nueva) => {
         setRegisteredPersons((prev) => [...prev, nueva]);
         return "Participación registrada correctamente";
       },
-      error: "Error al registrar. Verifica si la persona ya existe en esta actividad."
+      error: "Error al registrar.",
     });
   };
 
   const handleAddActivity = (nuevaActividad) => {
     setShowModal(false);
-    toast.success(`Actividad "${nuevaActividad.nombre}" creada. Ya puedes buscarla.`);
+    toast.success(
+      `Actividad "${nuevaActividad.nombre}" creada. Ya puedes buscarla.`,
+    );
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       <Toaster richColors position="top-right" />
-      
+
       <div className="max-w-7xl mx-auto px-4 py-8">
-        
         {/* NAVEGACIÓN */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <button onClick={() => navigate("/")} className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 transition-colors font-medium group">
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 transition-colors font-medium group"
+          >
             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             Volver al inicio
           </button>
-          <button onClick={() => navigate("/creacion-entidades")} className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-200 px-4 py-2 rounded-lg shadow-sm hover:bg-indigo-50 hover:border-indigo-300 transition-all">
+          <button
+            onClick={() => navigate("/creacion-entidades")}
+            className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-200 px-4 py-2 rounded-lg shadow-sm hover:bg-indigo-50 hover:border-indigo-300 transition-all"
+          >
             <Settings className="w-5 h-5" />
             Gestionar Entidades
           </button>
@@ -141,50 +202,151 @@ export function RegistroPersonas() {
             Registro de Personas
           </h1>
           <p className="text-gray-600">
-            Configura la sesión y registra la asistencia seleccionando sede y tema.
+            Configura la sesión y registra la asistencia.
           </p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
           {/* PANEL IZQUIERDO: CONFIGURACIÓN */}
-          <div className="bg-white rounded-lg shadow-md p-6 space-y-6 h-fit sticky top-6 border border-indigo-50">
+          <div className="bg-white rounded-lg shadow-md p-6 space-y-6 h-fit border border-indigo-50 lg:sticky lg:top-6">
             <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-               <h2 className="text-gray-800 font-semibold">Datos de la Sesión</h2>
-               <button type="button" onClick={() => setShowModal(true)} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded transition-colors font-medium">
-                  <PlusCircle className="w-3 h-3" /> Nueva Actividad
-                </button>
+              <h2 className="text-gray-800 font-semibold">
+                Datos de la Sesión
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowModal(true)}
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded transition-colors font-medium"
+              >
+                <PlusCircle className="w-3 h-3" /> Nueva Accion
+              </button>
             </div>
 
             <div>
               <AsyncEntitySelect
-                entityType="actividad"
-                label="Seleccionar Actividad"
-                placeholder="Escribe para buscar..."
-                onSelect={setSelectedActivityId}
-                required={true}
+                entityType="accion"
+                label="Seleccionar Acción"
+                onSelect={(id) => {
+                  setSelectedAccionId(id);
+                  setSelectedActivityId("");
+                  setSelectedTemaId("");
+                  setAvailableActivities([]);
+                  setAvailableTemas([]);
+                }}
+                required
               />
+
+              {selectedAccionId && (
+                <>
+                  {loadingActivities ? (
+                    <p className="text-sm text-gray-500">
+                      Cargando actividades...
+                    </p>
+                  ) : availableActivities.length === 0 ? (
+                    <p className="text-sm text-orange-600">
+                      Esta acción no tiene actividades registradas.
+                    </p>
+                  ) : (
+                    <AsyncEntitySelect
+                      entityType="actividad"
+                      label="Seleccionar Actividad"
+                      onSelect={(id) => {
+                        setSelectedActivityId(id);
+                        setSelectedTemaId("");
+                      }}
+                      required
+                    />
+                  )}
+                </>
+              )}
+
+              {selectedActivityId && (
+                <>
+                  {loadingTemas ? (
+                    <p className="text-sm text-gray-500">Cargando temas...</p>
+                  ) : availableTemas.length === 0 ? (
+                    <p className="text-sm text-blue-600">
+                      Esta actividad no tiene temas asociados (puedes
+                      continuar).
+                    </p>
+                  ) : (
+                    <AsyncEntitySelect
+                      entityType="tema"
+                      label="Seleccionar Tema"
+                      onSelect={setSelectedTemaId}
+                      required
+                    />
+                  )}
+                </>
+              )}
+
+              {selectedTemaId && (
+                <div>
+                  <label className="block text-gray-700 mb-2 font-medium text-sm">
+                    Sede <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={selectedSedeId}
+                    onChange={(e) => setSelectedSedeId(parseInt(e.target.value))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">-- Seleccionar Sede --</option>
+                    {entities.sede.map((sede) => (
+                      <option key={sede.id_sede} value={sede.id_sede}>
+                        {sede.nombre_original || sede.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
-            <div>
-              <label className="block text-gray-700 mb-2 font-medium text-sm">
-                Fecha del Evento <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
-            </div>
-            
-            <div className={`rounded-lg p-4 text-sm border ${canRegister ? 'bg-green-50 border-green-200 text-green-800' : 'bg-orange-50 border-orange-200 text-orange-800'}`}>
-                <p className="font-bold mb-1">Estado:</p>
-                {canRegister ? (
-                    <span className="flex items-center gap-2 font-semibold">● Listo para registrar</span>
-                ) : (
-                    <span className="flex items-center gap-2">● Faltan datos para habilidar el registro</span>
+            {selectedSedeId && (
+              <div>
+                <label className="block text-gray-700 mb-2 font-medium text-sm">
+                  Fecha del Evento <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+            )}
+
+            <div
+              className={`rounded-lg p-4 text-sm border ${
+                canRegister
+                  ? "bg-green-50 border-green-200 text-green-800"
+                  : "bg-orange-50 border-orange-200 text-orange-800"
+              }`}
+            >
+              <p className="font-bold mb-1">Estado:</p>
+
+              {!selectedAccionId && "● Selecciona una acción"}
+              {selectedAccionId &&
+                !selectedActivityId &&
+                "● Selecciona una actividad"}
+              {selectedActivityId &&
+                availableTemas.length > 0 &&
+                !selectedTemaId &&
+                "● Selecciona un tema"}
+              {selectedAccionId &&
+                selectedActivityId &&
+                selectedSedeId &&
+                (availableTemas.length === 0 || selectedTemaId) &&
+                selectedDate && (
+                  <span className="font-semibold">● Listo para registrar</span>
                 )}
+
+              {!selectedSedeId &&
+                selectedTemaId &&
+                "● Selecciona la sede de la participación\n"}
+
+              {!selectedDate &&
+                selectedTemaId &&
+                "● Selecciona la fecha de la participación\n"}
             </div>
           </div>
 
@@ -192,21 +354,25 @@ export function RegistroPersonas() {
           <div className="lg:col-span-2">
             {canRegister ? (
               <div className="animate-fade-in-up">
-                  <PersonSearchAndRegister 
-                    onSubmit={handlePersonSubmit} 
-                    escuelas={entities.escuela} 
-                    facultades={entities.facultad} 
-                    sedes={entities.sede} 
-                    temas={availableTemas} // <--- Pasamos los temas cargados
-                  />
+                <PersonSearchAndRegister
+                  onSubmit={handlePersonSubmit}
+                  escuelas={entities.escuela}
+                  facultades={entities.facultad}
+                  sedes={entities.sede}
+                  temas={availableTemas} // <--- Pasamos los temas cargados
+                />
               </div>
             ) : (
               <div className="bg-white rounded-lg shadow-md p-12 text-center text-gray-500 flex flex-col items-center justify-center min-h-[400px] border-2 border-dashed border-gray-200">
                 <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mb-6 animate-pulse">
-                    <UserPlus className="w-10 h-10 text-indigo-300" />
+                  <UserPlus className="w-10 h-10 text-indigo-300" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-700 mb-2">Esperando configuración</h3>
-                <p className="text-sm max-w-xs mx-auto">Selecciona Actividad y Fecha para continuar.</p>
+                <h3 className="text-xl font-bold text-gray-700 mb-2">
+                  Esperando configuración
+                </h3>
+                <p className="text-sm max-w-xs mx-auto">
+                  Selecciona Actividad y Fecha para continuar.
+                </p>
               </div>
             )}
           </div>

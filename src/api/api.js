@@ -10,25 +10,25 @@ export const API_BASE = ENV_URL || "http://127.0.0.1:8000/api/";
 
 export const API_ENDPOINTS = {
   sede: "sedes",
-  lineaProyecto: "lineas-proyecto",
   facultad: "facultades",
   escuela: "escuelas",
   persona: "personas",
-  indicador: "indicadores",
-  actividadConsolidada: "actividades-consolidadas",
-  tema: "temas",
-  prioridad: "prioridades",
-  lineaEstrategia: "lineas-estrategia",
+  estudiante: "estudiantes", // ✅ NUEVO
+  accion: "acciones", // ✅ NUEVO
   actividad: "actividades",
   participacion: "participaciones",
-  
-  login: "token/",          
-  refresh: "token/refresh", 
-  
+  tema: "temas",
+  prioridad: "prioridades",
+  estrategia: "estrategia", // ✅ NUEVO
+  lineaEstrategia: "lineas-estrategia",
+
+  // Auth
+  login: "token/",
+  refresh: "token/refresh",
+
   // Dashboard
-  dashboard: "dashboard-stats", 
-  dashboardResumen: "dashboard-stats/resumen", 
-  dashboardIndicador: "dashboard-stats/por_indicador",
+  dashboard: "dashboard-stats",
+  dashboardResumen: "dashboard-stats/resumen",
   dashboardPrioridad: "dashboard-stats/por_prioridad",
   dashboardEstrategia: "dashboard-stats/por_estrategia",
   dashboardSede: "dashboard-stats/por_sede",

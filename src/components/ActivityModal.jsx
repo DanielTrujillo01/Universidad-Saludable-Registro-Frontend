@@ -4,15 +4,14 @@ import { apiRequest } from "../api/api";
 import { normalizeText } from "../Funtions/BasicFuntions";
 import { AsyncEntitySelect } from "./AsyncEntitySelect"; // <--- IMPORTANTE
 
-export function ActivityModal({ 
-  open, 
-  onClose, 
-  onSubmit, 
+export function ActionModal({
+  open,
+  onClose,
+  onSubmit,
   // Ya NO recibimos 'indicadores' ni 'lineasProyecto' porque los buscaremos asíncronamente
-  prioridades, 
-  estrategias 
+  prioridades,
+  estrategias,
 }) {
-  
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") onClose();
@@ -22,15 +21,11 @@ export function ActivityModal({
   }, [open, onClose]);
 
   const [nombre, setNombre] = useState("");
-  
-  // Estados para IDs seleccionados
-  const [indicadorId, setIndicadorId] = useState("");
-  const [lineaProyId, setLineaProyId] = useState("");
-  
+
   // Estos siguen siendo selects normales
   const [prioridad, setPrioridad] = useState("");
   const [estrategia, setEstrategia] = useState("");
-  
+
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -38,29 +33,24 @@ export function ActivityModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!nombre || !indicadorId) return;
+    if (!nombre) return;
 
     setLoading(true);
-    
+
     const data = {
       nombre: normalizeText(nombre),
       nombre_original: nombre,
-      indicador: parseInt(indicadorId, 10),
-      // Opcionales
-      ...(lineaProyId && { id_linea_proyecto: parseInt(lineaProyId, 10) }),
-      ...(prioridad && { id_prioridad: parseInt(prioridad, 10) }),
-      ...(estrategia && { id_linea_estrategia: parseInt(estrategia, 10) }),
+      ...(prioridad_id && { id_prioridad: parseInt(prioridad, 10) }),
+      ...(estrategia_id && { id_linea_estrategia: parseInt(estrategia, 10) }),
     };
 
     try {
-      const newActividad = await apiRequest("actividad", "POST", data);
-      onSubmit && onSubmit(newActividad);
+      const newAccion = await apiRequest("accion", "POST", data);
+      onSubmit && onSubmit(newAccion);
       setSuccess(true);
-      
+
       // Limpiar formulario
       setNombre("");
-      setIndicadorId(""); // Reset ID
-      setLineaProyId(""); // Reset ID
       setPrioridad("");
       setEstrategia("");
 
@@ -69,7 +59,7 @@ export function ActivityModal({
         onClose();
       }, 1200);
     } catch (error) {
-      alert("❌ Error creando actividad.");
+      alert("❌ Error creando accion.");
       console.error(error);
     } finally {
       setLoading(false);
@@ -77,15 +67,14 @@ export function ActivityModal({
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity p-4"
-      onClick={onClose} 
+      onClick={onClose}
     >
-      <div 
+      <div
         className="relative w-full max-w-2xl bg-white rounded-xl shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in duration-200 overflow-y-auto max-h-[95vh]"
         onClick={(e) => e.stopPropagation()}
       >
-
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition-colors"
@@ -98,7 +87,6 @@ export function ActivityModal({
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          
           {/* NOMBRE */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -115,29 +103,6 @@ export function ActivityModal({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            {/* 1. INDICADOR (Buscador Asíncrono) */}
-            <div className="z-20 relative"> {/* z-index para que el dropdown flote sobre otros */}
-              <AsyncEntitySelect
-                entityType="indicador"
-                label="Indicador"
-                placeholder="Buscar indicador..."
-                onSelect={setIndicadorId}
-                required={true}
-              />
-            </div>
-
-            {/* 2. LÍNEA DE PROYECTO (Buscador Asíncrono) */}
-            <div className="z-10 relative">
-              <AsyncEntitySelect
-                entityType="lineaProyecto"
-                label="Línea de Proyecto"
-                placeholder="Buscar línea..."
-                onSelect={setLineaProyId}
-                required={false}
-              />
-            </div>
-
             {/* 3. PRIORIDAD (Select Normal - Pocos datos) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -169,7 +134,10 @@ export function ActivityModal({
               >
                 <option value="">Ninguna</option>
                 {estrategias?.map((e) => (
-                  <option key={e.id_linea_estrategia} value={e.id_linea_estrategia}>
+                  <option
+                    key={e.id_linea_estrategia}
+                    value={e.id_linea_estrategia}
+                  >
                     {e.nombre_original || e.nombre}
                   </option>
                 ))}
