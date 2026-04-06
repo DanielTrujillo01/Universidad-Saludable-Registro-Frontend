@@ -4,9 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { Toaster, toast } from "sonner";
 
 import { PersonSearchAndRegister } from "../components/PersonSearchAndRegister";
-import { ActivityModal } from "../components/ActivityModal";
+import { ActionModal } from "../components/creationsModals/ActionModal";
 import { AsyncEntitySelect } from "../components/AsyncEntitySelect";
 import { apiRequest, API_ENDPOINTS } from "../api/api";
+import { CreateEntityModal } from "../components/creationsModals/CreateEntityModal";
+import { ActivityModal } from "../components/creationsModals/ActivityModal";
+import { SectionModal } from "../components/creationsModals/SectionModal";
 
 export function RegistroPersonas() {
   const navigate = useNavigate();
@@ -18,6 +21,7 @@ export function RegistroPersonas() {
     escuela: [],
     prioridad: [],
     lineaEstrategia: [],
+    estrategia: [],
   });
 
   // Estados de la sesión
@@ -34,7 +38,8 @@ export function RegistroPersonas() {
   const [availableTemas, setAvailableTemas] = useState([]);
   const [availableActivities, setAvailableActivities] = useState([]);
   const [registeredPersons, setRegisteredPersons] = useState([]);
-  const [showModal, setShowModal] = useState(false);
+  const [showSelectorModal, setShowSelectorModal] = useState(false);
+  const [activeModal, setActiveModal] = useState(null); // "accion" | "actividad" | "seccion"
 
   const canRegister =
     selectedAccionId &&
@@ -50,6 +55,7 @@ export function RegistroPersonas() {
     "escuela",
     "prioridad",
     "lineaEstrategia",
+    "estrategia",
   ];
 
   useEffect(() => {
@@ -65,6 +71,7 @@ export function RegistroPersonas() {
         }
       }
     }
+    console.log("Estrategias:", entities.estrategia);
     fetchData();
   }, []);
 
@@ -130,7 +137,7 @@ export function RegistroPersonas() {
 
     fetchThemes();
   }, [selectedActivityId]);
-  
+
   // 4. REGISTRAR ASISTENCIA
   const handlePersonSubmit = async (personaId) => {
     if (
@@ -171,6 +178,11 @@ export function RegistroPersonas() {
     toast.success(
       `Actividad "${nuevaActividad.nombre}" creada. Ya puedes buscarla.`,
     );
+  };
+
+  const handleSelectEntity = (type) => {
+    setShowSelectorModal(false);
+    setActiveModal(type);
   };
 
   return (
@@ -215,10 +227,10 @@ export function RegistroPersonas() {
               </h2>
               <button
                 type="button"
-                onClick={() => setShowModal(true)}
+                onClick={() => setShowSelectorModal(true)}
                 className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded transition-colors font-medium"
               >
-                <PlusCircle className="w-3 h-3" /> Nueva Accion
+                <PlusCircle className="w-3 h-3" /> Crear Nuevo
               </button>
             </div>
 
@@ -287,7 +299,9 @@ export function RegistroPersonas() {
                   </label>
                   <select
                     value={selectedSedeId}
-                    onChange={(e) => setSelectedSedeId(parseInt(e.target.value))}
+                    onChange={(e) =>
+                      setSelectedSedeId(parseInt(e.target.value))
+                    }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="">-- Seleccionar Sede --</option>
@@ -379,12 +393,41 @@ export function RegistroPersonas() {
         </div>
       </div>
 
-      <ActivityModal
-        open={showModal}
-        onClose={() => setShowModal(false)}
+      {/* 🔹 Selector de entidad */}
+      <CreateEntityModal
+        open={showSelectorModal}
+        onClose={() => setShowSelectorModal(false)}
+        onSelect={handleSelectEntity}
+      />
+
+      {/* 🔹 Acción */}
+      <ActionModal
+        open={activeModal === "accion"}
+        onClose={() => setActiveModal(null)}
         onSubmit={handleAddActivity}
         prioridades={entities.prioridad}
-        estrategias={entities.lineaEstrategia}
+        lineasEstrategias={entities.lineaEstrategia}
+        estrategias={entities.estrategia}
+      />
+
+      {/* 🔹 Actividad */}
+      <ActivityModal
+        open={activeModal === "actividad"}
+        onClose={() => setActiveModal(null)}
+        onSubmit={(nueva) => {
+          toast.success(`Actividad "${nueva.nombre}" creada`);
+          setActiveModal(null);
+        }}
+      />
+
+      {/* 🔹 Sección */}
+      <SectionModal
+        open={activeModal === "seccion"}
+        onClose={() => setActiveModal(null)}
+        onSubmit={(nueva) => {
+          toast.success(`Sección "${nueva.nombre}" creada`);
+          setActiveModal(null);
+        }}
       />
     </div>
   );
