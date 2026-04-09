@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { XCircle, CheckCircle } from "lucide-react";
-import { apiRequest } from "../api/api";
-import { normalizeText } from "../Funtions/BasicFuntions";
-import { AsyncEntitySelect } from "./AsyncEntitySelect";
+import { apiRequest } from "../../api/api";
+import { normalizeText } from "../../Funtions/BasicFuntions";
+import { AsyncEntitySelect } from "../AsyncEntitySelect";
 
 export function SectionModal({ open, onClose, onSubmit }) {
   const [nombre, setNombre] = useState("");
@@ -33,7 +33,7 @@ export function SectionModal({ open, onClose, onSubmit }) {
     };
 
     try {
-      const res = await apiRequest("seccion", "POST", data);
+      const res = await apiRequest("tema", "POST", data);
       onSubmit && onSubmit(res);
 
       setSuccess(true);
@@ -81,10 +81,11 @@ export function SectionModal({ open, onClose, onSubmit }) {
           />
 
           <AsyncEntitySelect
-            endpoint="actividad"
-            value={actividad}
-            onChange={setActividad}
+            entityType="actividad"
             label="Buscar Actividad"
+            onSelect={setActividad}
+            placeholder={"Escribe para buscar una actividad..."}
+            required={true}
           />
 
           <button className="w-full bg-green-600 text-white py-2 rounded-lg">

@@ -10,6 +10,7 @@ import { apiRequest, API_ENDPOINTS } from "../api/api";
 import { CreateEntityModal } from "../components/creationsModals/CreateEntityModal";
 import { ActivityModal } from "../components/creationsModals/ActivityModal";
 import { SectionModal } from "../components/creationsModals/SectionModal";
+import { set } from "react-hook-form";
 
 export function RegistroPersonas() {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ export function RegistroPersonas() {
   const [availableActivities, setAvailableActivities] = useState([]);
   const [registeredPersons, setRegisteredPersons] = useState([]);
   const [showSelectorModal, setShowSelectorModal] = useState(false);
-  const [activeModal, setActiveModal] = useState(null); // "accion" | "actividad" | "seccion"
+  const [activeModal, setActiveModal] = useState(null); // "accion", "actividad", "seccion"
 
   const canRegister =
     selectedAccionId &&
@@ -47,6 +48,10 @@ export function RegistroPersonas() {
     selectedSedeId &&
     selectedDate &&
     (availableTemas.length === 0 || selectedTemaId);
+
+  const shouldShowSede =
+    !loadingTemas &&
+    (selectedTemaId || (selectedActivityId && availableTemas.length === 0));
 
   // 2. WHITELIST: Carga inicial solo de datos pequeños y públicos
   const REQUIRED_ENTITIES = [
@@ -174,7 +179,7 @@ export function RegistroPersonas() {
   };
 
   const handleAddActivity = (nuevaActividad) => {
-    setShowModal(false);
+    setActiveModal(false);
     toast.success(
       `Actividad "${nuevaActividad.nombre}" creada. Ya puedes buscarla.`,
     );
@@ -238,10 +243,14 @@ export function RegistroPersonas() {
               <AsyncEntitySelect
                 entityType="accion"
                 label="Seleccionar Acción"
+                // PASAMOS EL VALOR ACTUAL para que el componente sepa si debe resetearse
+                value={selectedAccionId}
                 onSelect={(id) => {
                   setSelectedAccionId(id);
                   setSelectedActivityId("");
                   setSelectedTemaId("");
+                  setSelectedSedeId("");
+                  setSelectedDate("");
                   setAvailableActivities([]);
                   setAvailableTemas([]);
                 }}
@@ -262,6 +271,9 @@ export function RegistroPersonas() {
                     <AsyncEntitySelect
                       entityType="actividad"
                       label="Seleccionar Actividad"
+                      value={selectedActivityId}
+                      parentId={selectedAccionId} // <--- Pasamos el ID seleccionado arriba
+                      parentField="actividadasociada__accion_id" // <--- El nombre del campo que espera tu backend
                       onSelect={(id) => {
                         setSelectedActivityId(id);
                         setSelectedTemaId("");
@@ -278,13 +290,16 @@ export function RegistroPersonas() {
                     <p className="text-sm text-gray-500">Cargando temas...</p>
                   ) : availableTemas.length === 0 ? (
                     <p className="text-sm text-blue-600">
-                      Esta actividad no tiene temas asociados (puedes
+                      Esta actividad no tiene secciones asociados (puedes
                       continuar).
                     </p>
                   ) : (
                     <AsyncEntitySelect
                       entityType="tema"
                       label="Seleccionar Tema"
+                      value={selectedTemaId}  
+                      parentId={selectedActivityId} // <--- Pasamos el ID de la actividad
+                      parentField="temaasociado__actividad_id" // <--- El nombre del campo para temas
                       onSelect={setSelectedTemaId}
                       required
                     />
@@ -292,16 +307,17 @@ export function RegistroPersonas() {
                 </>
               )}
 
-              {selectedTemaId && (
+              {shouldShowSede && (
                 <div>
                   <label className="block text-gray-700 mb-2 font-medium text-sm">
                     Sede <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={selectedSedeId}
-                    onChange={(e) =>
-                      setSelectedSedeId(parseInt(e.target.value))
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedSedeId(val ? parseInt(val, 10) : "");
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="">-- Seleccionar Sede --</option>
@@ -315,7 +331,7 @@ export function RegistroPersonas() {
               )}
             </div>
 
-            {selectedSedeId && (
+            {shouldShowSede && (
               <div>
                 <label className="block text-gray-700 mb-2 font-medium text-sm">
                   Fecha del Evento <span className="text-red-500">*</span>
@@ -354,13 +370,13 @@ export function RegistroPersonas() {
                   <span className="font-semibold">● Listo para registrar</span>
                 )}
 
-              {!selectedSedeId &&
-                selectedTemaId &&
-                "● Selecciona la sede de la participación\n"}
+              {shouldShowSede && !selectedSedeId && (
+                <p>● Selecciona la sede de la participación</p>
+              )}
 
-              {!selectedDate &&
-                selectedTemaId &&
-                "● Selecciona la fecha de la participación\n"}
+              {shouldShowSede && !selectedDate && (
+                <p>● Selecciona la fecha de la participación</p>
+              )}
             </div>
           </div>
 

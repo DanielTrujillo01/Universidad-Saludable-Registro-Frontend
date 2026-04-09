@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { XCircle, CheckCircle } from "lucide-react";
 import { apiRequest } from "../../api/api";
@@ -42,16 +41,21 @@ export function ActionModal({
     const data = {
       nombre: normalizeText(nombre),
       nombre_original: nombre,
-      ...(prioridad_id && { id_prioridad: parseInt(prioridad, 10) }),
-      ...(estrategia_id && { id_linea_estrategia: parseInt(lineaEstrategia, 10) }),
+    
+      ...(prioridad && { id_prioridad: parseInt(prioridad, 10) }),
+     
+      ...(lineaEstrategia && {
+        id_linea_estrategia: parseInt(lineaEstrategia, 10),
+      }),
+    
+      ...(estrategia && { estrategia: parseInt(estrategia, 10) }),
     };
 
     try {
-      const newAccion = await apiRequest("accion", "POST", data);
-      onSubmit && onSubmit(newAccion);
-      setSuccess(true);
+      const res = await apiRequest("accion", "POST", data);
 
-      // Limpiar formulario
+      onSubmit && onSubmit(res);
+      setSuccess(true);
       setNombre("");
       setPrioridad("");
       setLineaEstrategia("");
@@ -61,10 +65,7 @@ export function ActionModal({
         onClose();
       }, 1200);
     } catch (error) {
-      alert("❌ Error creando accion.");
-      console.error(error);
-    } finally {
-      setLoading(false);
+      alert(`❌ Error: ${error.message}`);
     }
   };
 
@@ -157,10 +158,7 @@ export function ActionModal({
               >
                 <option value="">Seleccione una estrategia</option>
                 {estrategias?.map((e) => (
-                  <option
-                    key={e.id_estrategia}
-                    value={e.id_estrategia}
-                  >
+                  <option key={e.id_estrategia} value={e.id_estrategia}>
                     {e.nombre_original || e.nombre}
                   </option>
                 ))}
@@ -186,5 +184,4 @@ export function ActionModal({
       </div>
     </div>
   );
-}  
-
+}

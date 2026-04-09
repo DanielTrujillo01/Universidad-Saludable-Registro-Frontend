@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { XCircle, CheckCircle } from "lucide-react";
-import { apiRequest } from "../api/api";
-import { normalizeText } from "../Funtions/BasicFuntions";
-import { AsyncEntitySelect } from "./AsyncEntitySelect"; // <--- IMPORTANTE
+import { apiRequest } from "../../api/api";
+import { normalizeText } from "../../Funtions/BasicFuntions";
+import { AsyncEntitySelect } from "../AsyncEntitySelect"; // <--- IMPORTANTE
 
 export function ActivityModal({ open, onClose, onSubmit }) {
   const [nombre, setNombre] = useState("");
@@ -68,9 +68,7 @@ export function ActivityModal({ open, onClose, onSubmit }) {
           <XCircle className="w-6 h-6" />
         </button>
 
-        <h2 className="text-xl font-bold border-b pb-2">
-          Crear Actividad
-        </h2>
+        <h2 className="text-xl font-bold border-b pb-2">Crear Actividad</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
@@ -81,10 +79,11 @@ export function ActivityModal({ open, onClose, onSubmit }) {
           />
 
           <AsyncEntitySelect
-            endpoint="accion"
-            value={accion}
-            onChange={setAccion}
+            entityType="accion" 
             label="Buscar Acción"
+            onSelect={setAccion} 
+            placeholder="Escribe para buscar una acción..."
+            required={true}
           />
 
           <button
