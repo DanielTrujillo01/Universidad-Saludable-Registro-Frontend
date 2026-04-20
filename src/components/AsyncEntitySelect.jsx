@@ -91,8 +91,16 @@ export function AsyncEntitySelect({
           type="text"
           value={searchTerm}
           onChange={(e) => {
-            setSearchTerm(e.target.value);
-            if (selectedItem) setSelectedItem(null); // Reset si edita
+            const newValue = e.target.value;
+            setSearchTerm(newValue);
+
+            if (selectedItem) setSelectedItem(null);
+
+            // NUEVO: Si el usuario borra todo el texto manualmente,
+            // notificamos al padre para que limpie sus hijos.
+            if (newValue === "") {
+              onSelect("");
+            }
           }}
           placeholder={selectedItem ? selectedItem.displayName : placeholder}
           className={`w-full pl-10 pr-10 py-2 border rounded-lg outline-none transition-all ${

@@ -11,7 +11,7 @@ const entityLabels = {
   escuela: "Escuela",
   indicador: "Indicador",
   actividadConsolidada: "Actividad Consolidada",
-  tema: "Tema",
+  seccion: "Sección",
   prioridad: "Prioridad",
   lineaEstrategia: "Línea de Estrategia",
 };
@@ -51,8 +51,8 @@ export function EntityForm({ entityType, existingData = [], onSubmit, onCancel }
       data.facultad = parseInt(facultadId, 10);
     }
     
-    // Al enviar esto, el backend (TemaViewSet.create) creará la asociación automáticamente
-    if (entityType === "tema") {
+    // Al enviar esto, el backend (SeccionViewSet.create) creará la asociación automáticamente
+    if (entityType === "seccion") {
        data.id_actividad = parseInt(actividadId, 10); 
     }
 
@@ -68,7 +68,7 @@ export function EntityForm({ entityType, existingData = [], onSubmit, onCancel }
   const isFormValid = () => {
     if (!nombre.trim()) return false;
     if (entityType === "escuela" && !facultadId) return false;
-    if (entityType === "tema" && !actividadId) return false;
+    if (entityType === "seccion" && !actividadId) return false;
     return true;
   };
 
@@ -104,8 +104,8 @@ export function EntityForm({ entityType, existingData = [], onSubmit, onCancel }
             />
         )}
 
-        {/* SELECTOR ASÍNCRONO PARA ACTIVIDAD (Solo Tema) */}
-        {entityType === "tema" && (
+        {/* SELECTOR ASÍNCRONO PARA ACTIVIDAD (Solo Sección) */}
+        {entityType === "seccion" && (
           <div>
             <AsyncEntitySelect 
                 entityType="actividad"
@@ -115,7 +115,7 @@ export function EntityForm({ entityType, existingData = [], onSubmit, onCancel }
                 required={true}
             />
              <p className="text-xs text-gray-500 mt-1 bg-blue-50 p-2 rounded border border-blue-100">
-               <span className="font-bold">Nota:</span> Al guardar, el sistema creará el tema y lo vinculará automáticamente a esta actividad.
+               <span className="font-bold">Nota:</span> Al guardar, el sistema creará la sección y lo vinculará automáticamente a esta actividad.
              </p>
           </div>
         )}

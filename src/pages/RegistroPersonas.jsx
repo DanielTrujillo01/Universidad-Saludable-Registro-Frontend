@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { UserPlus, ArrowLeft, Settings, PlusCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Toaster, toast } from "sonner";
-
+import { normalizeText } from "../Funtions/BasicFuntions";
 import { PersonSearchAndRegister } from "../components/PersonSearchAndRegister";
 import { ActionModal } from "../components/creationsModals/ActionModal";
 import { AsyncEntitySelect } from "../components/AsyncEntitySelect";
@@ -28,15 +28,15 @@ export function RegistroPersonas() {
   // Estados de la sesión
   const [selectedAccionId, setSelectedAccionId] = useState("");
   const [selectedActivityId, setSelectedActivityId] = useState("");
-  const [selectedTemaId, setSelectedTemaId] = useState("");
+  const [selectedSeccionId, setSelectedSeccionId] = useState("");
   const [selectedSedeId, setSelectedSedeId] = useState("");
 
   //estados de carga dinámica
   const [loadingActivities, setLoadingActivities] = useState(false);
-  const [loadingTemas, setLoadingTemas] = useState(false);
+  const [loadingSecciones, setLoadingSecciones] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState("");
-  const [availableTemas, setAvailableTemas] = useState([]);
+  const [availableSecciones, setAvailableSecciones] = useState([]);
   const [availableActivities, setAvailableActivities] = useState([]);
   const [registeredPersons, setRegisteredPersons] = useState([]);
   const [showSelectorModal, setShowSelectorModal] = useState(false);
@@ -47,11 +47,12 @@ export function RegistroPersonas() {
     selectedActivityId &&
     selectedSedeId &&
     selectedDate &&
-    (availableTemas.length === 0 || selectedTemaId);
+    (availableSecciones.length === 0 || selectedSeccionId);
 
   const shouldShowSede =
-    !loadingTemas &&
-    (selectedTemaId || (selectedActivityId && availableTemas.length === 0));
+    !loadingSecciones &&
+    (selectedSeccionId ||
+      (selectedActivityId && availableSecciones.length === 0));
 
   // 2. WHITELIST: Carga inicial solo de datos pequeños y públicos
   const REQUIRED_ENTITIES = [
@@ -115,28 +116,28 @@ export function RegistroPersonas() {
   useEffect(() => {
     async function fetchThemes() {
       if (!selectedActivityId) {
-        setAvailableTemas([]);
-        setSelectedTemaId("");
+        setAvailableSecciones([]);
+        setSelectedSeccionId("");
         return;
       }
 
-      setLoadingTemas(true);
+      setLoadingSecciones(true);
 
       try {
-        const temas = await apiRequest(
+        const secciones = await apiRequest(
           "actividad",
           "GET",
           null,
-          `${selectedActivityId}/temas`,
+          `${selectedActivityId}/secciones`,
         );
 
-        setAvailableTemas(temas);
+        setAvailableSecciones(secciones);
       } catch (error) {
-        console.error("Error cargando temas:", error);
-        setAvailableTemas([]);
-        toast.error("No se pudieron cargar los temas.");
+        console.error("Error cargando secciones:", error);
+        setAvailableSecciones([]);
+        toast.error("No se pudieron cargar las secciones.");
       } finally {
-        setLoadingTemas(false);
+        setLoadingSecciones(false);
       }
     }
 
@@ -144,27 +145,35 @@ export function RegistroPersonas() {
   }, [selectedActivityId]);
 
   // 4. REGISTRAR ASISTENCIA
-  const handlePersonSubmit = async (personaId) => {
+  // En RegistroPersonas.jsx
+
+  const handlePersonSubmit = async (dataDesdeHijo) => {
+
     if (
-      !personaId ||
+      !dataDesdeHijo.persona ||
       !selectedSedeId ||
       !selectedActivityId ||
-      !selectedDate ||
-      (availableTemas.length > 0 && !selectedTemaId)
+      !selectedDate
     ) {
-      toast.warning("Faltan datos para registrar la participación");
+      toast.warning(
+        "Faltan datos de la sesión para registrar la participación",
+      );
       return;
     }
-
+    //Armamos el body final de la Participación
     const body = {
-      persona_id: personaId,
-      accion_id: selectedAccionId,
-      actividad_id: selectedActivityId,
-      sede_id: parseInt(selectedSedeId, 10),
-      tema: selectedTemaId || null,
+      persona: dataDesdeHijo.persona,
+      vinculacion: dataDesdeHijo.vinculacion,
+      accion: parseInt(selectedAccionId, 10),
+      actividad: parseInt(selectedActivityId, 10),
       fecha: selectedDate,
       anio: new Date(selectedDate).getFullYear(),
+      sede: parseInt(selectedSedeId, 10),
     };
+
+    if (selectedSeccionId) {
+      body.seccion = parseInt(selectedSeccionId, 10);
+    }
 
     const promise = apiRequest("participacion", "POST", body);
 
@@ -174,7 +183,7 @@ export function RegistroPersonas() {
         setRegisteredPersons((prev) => [...prev, nueva]);
         return "Participación registrada correctamente";
       },
-      error: "Error al registrar.",
+      error: "Error al registrar. Revisa los datos de la persona.",
     });
   };
 
@@ -248,11 +257,11 @@ export function RegistroPersonas() {
                 onSelect={(id) => {
                   setSelectedAccionId(id);
                   setSelectedActivityId("");
-                  setSelectedTemaId("");
+                  setSelectedSeccionId("");
                   setSelectedSedeId("");
                   setSelectedDate("");
                   setAvailableActivities([]);
-                  setAvailableTemas([]);
+                  setAvailableSecciones([]);
                 }}
                 required
               />
@@ -268,6 +277,7 @@ export function RegistroPersonas() {
                       Esta acción no tiene actividades registradas.
                     </p>
                   ) : (
+
                     <AsyncEntitySelect
                       entityType="actividad"
                       label="Seleccionar Actividad"
@@ -276,8 +286,9 @@ export function RegistroPersonas() {
                       parentField="actividadasociada__accion_id" // <--- El nombre del campo que espera tu backend
                       onSelect={(id) => {
                         setSelectedActivityId(id);
-                        setSelectedTemaId("");
+                        setSelectedSeccionId("");
                       }}
+                      
                       required
                     />
                   )}
@@ -286,21 +297,23 @@ export function RegistroPersonas() {
 
               {selectedActivityId && (
                 <>
-                  {loadingTemas ? (
-                    <p className="text-sm text-gray-500">Cargando temas...</p>
-                  ) : availableTemas.length === 0 ? (
+                  {loadingSecciones ? (
+                    <p className="text-sm text-gray-500">
+                      Cargando secciones...
+                    </p>
+                  ) : availableSecciones.length === 0 ? (
                     <p className="text-sm text-blue-600">
                       Esta actividad no tiene secciones asociados (puedes
                       continuar).
                     </p>
                   ) : (
                     <AsyncEntitySelect
-                      entityType="tema"
-                      label="Seleccionar Tema"
-                      value={selectedTemaId}  
+                      entityType="seccion"
+                      label="Seleccionar Sección"
+                      value={selectedSeccionId}
                       parentId={selectedActivityId} // <--- Pasamos el ID de la actividad
-                      parentField="temaasociado__actividad_id" // <--- El nombre del campo para temas
-                      onSelect={setSelectedTemaId}
+                      parentField="seccionasociada__actividad_id" // <--- El nombre del campo para secciones
+                      onSelect={setSelectedSeccionId}
                       required
                     />
                   )}
@@ -359,13 +372,13 @@ export function RegistroPersonas() {
                 !selectedActivityId &&
                 "● Selecciona una actividad"}
               {selectedActivityId &&
-                availableTemas.length > 0 &&
-                !selectedTemaId &&
-                "● Selecciona un tema"}
+                availableSecciones.length > 0 &&
+                !selectedSeccionId &&
+                "● Selecciona una sección"}
               {selectedAccionId &&
                 selectedActivityId &&
                 selectedSedeId &&
-                (availableTemas.length === 0 || selectedTemaId) &&
+                (availableSecciones.length === 0 || selectedSeccionId) &&
                 selectedDate && (
                   <span className="font-semibold">● Listo para registrar</span>
                 )}
@@ -389,7 +402,7 @@ export function RegistroPersonas() {
                   escuelas={entities.escuela}
                   facultades={entities.facultad}
                   sedes={entities.sede}
-                  temas={availableTemas} // <--- Pasamos los temas cargados
+                  secciones={availableSecciones} // <--- Pasamos las secciones cargadas
                 />
               </div>
             ) : (

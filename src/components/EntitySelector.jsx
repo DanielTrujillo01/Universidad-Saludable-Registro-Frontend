@@ -18,7 +18,7 @@ const entities = [
   { type: "escuela", label: "Escuela", icon: School, color: "bg-yellow-500" },
   { type: "indicador", label: "Indicador", icon: Target, color: "bg-red-500" },
   { type: "actividadConsolidada", label: "Actividad Consolidada", icon: FileCheck, color: "bg-indigo-500" },
-  { type: "tema", label: "Tema", icon: BookOpen, color: "bg-pink-500" },
+  { type: "seccion", label: "Sección", icon: BookOpen, color: "bg-pink-500" },
   { type: "prioridad", label: "Prioridad", icon: AlertCircle, color: "bg-orange-500" },
   { type: "lineaEstrategia", label: "Línea de Estrategia", icon: TrendingUp, color: "bg-teal-500" },
 ];

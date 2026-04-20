@@ -10,16 +10,15 @@ export const API_BASE = ENV_URL || "http://127.0.0.1:8000/api/";
 
 export const API_ENDPOINTS = {
   sede: "sedes",
-  facultad: "facultades",
-  escuela: "escuelas",
   persona: "personas",
-  estudiante: "estudiantes", // ✅ NUEVO
-  accion: "acciones", // ✅ NUEVO
+  vinculacion: "vinculaciones",
+  unidadOrganizativa: "unidades-organizativas",
+  accion: "acciones",
   actividad: "actividades",
   participacion: "participaciones",
-  tema: "temas",
+  seccion: "secciones",
   prioridad: "prioridades",
-  estrategia: "estrategia", // ✅ NUEVO
+  estrategia: "estrategia",
   lineaEstrategia: "lineas-estrategia",
 
   // Auth

@@ -8,7 +8,7 @@ const entityLabels = {
   escuela: "Escuelas",
   indicador: "Indicadores",
   actividadConsolidada: "Actividades Consolidadas",
-  tema: "Temas",
+  seccion: "Secciones",
   prioridad: "Prioridades",
   lineaEstrategia: "Líneas de Estrategia",
 };
