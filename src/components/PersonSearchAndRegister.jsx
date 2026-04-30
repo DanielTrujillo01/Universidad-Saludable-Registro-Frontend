@@ -229,52 +229,78 @@ export function PersonSearchAndRegister({ onSubmit, escuelas, facultades }) {
   };
 
   const handleFinalSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (selectedPerson) {
-      if (!selectedVinculacion) {
-        toast.warning("Por favor selecciona una vinculación activa.");
-        return;
-      }
-      console.log("IDs enviados al padre:", {
-        persona: selectedPerson.id_persona,
-        vinculacion: selectedVinculacion.id_vinculacion,
-      });
-      // ENVIAMOS SOLO LOS IDS NECESARIOS AL PADRE
-      // El padre ya sabe cuál es la acción, actividad, sede y fecha
-      const idsParaRegistro = {
-        persona: selectedPerson.id_persona,
-        vinculacion: selectedVinculacion.id_vinculacion,
+  if (selectedPerson) {
+    if (!selectedVinculacion) {
+      alert("Por favor selecciona una vinculación activa.");
+      return;
+    }
+    
+    const idsParaRegistro = {
+      persona: selectedPerson.id_persona,
+      vinculacion: selectedVinculacion.id_vinculacion,
+    };
+
+    try {
+      await onSubmit(idsParaRegistro);
+      resetAll();
+    } catch (error) {
+      console.error("Error al registrar participación:", error);
+    }
+  } else if (isNewPersonMode && isFormValid()) {
+    // === CASO 2: PERSONA NUEVA + VINCULACIÓN NUEVA ===
+    try {
+      // 1. Preparamos y creamos la Persona
+      const personData = {
+        edad: parseInt(formData.edad, 10),
+        numero_documento: parseInt(formData.numeroDocumento, 10),
+        correo: formData.correo,
+        sexo: formData.sexo,
+        nombre: normalizeText(formData.nombre),
+        nombre_original: formData.nombre,
+        tipo_documento: formData.tipoDocumento,
       };
 
-      try {
-        await onSubmit(idsParaRegistro);
-        resetAll();
-      } catch (error) {
-        console.error("Error al registrar participación:", error);
-      }
-    } else if (isNewPersonMode && isFormValid()) {
-      // Caso 2: Persona nueva
-      try {
-        const dataToSave = {
-          edad: parseInt(formData.edad, 10),
-          numero_documento: parseInt(formData.numeroDocumento, 10),
-          correo: formData.correo,
-          sexo: formData.sexo,
-          nombre: normalizeText(formData.nombre),
-          nombre_original: formData.nombre,
-          tipo_documento: formData.tipoDocumento,
-        };
+      console.log("Creando nueva persona con datos:", personData);
+      const newPersona = await apiRequest("persona", "POST", personData);
 
-        const newPersona = await apiRequest("persona", "POST", dataToSave);
-        onSubmit(newPersona.id_persona);
-        resetAll();
-      } catch (error) {
-        console.error("Error creando persona:", error);
-        alert("Error al guardar la persona.");
-      }
+      // 2. Creamos la Vinculación (usando la lógica de handleAddVinculacion)
+      // Usamos los campos estamento y escuelaId que vienen del PersonFormFields
+      console.log("Creando vinculación para la nueva persona con datos:", {
+        id_persona: newPersona.id_persona,
+        id_unidad_organizativa: formData.escuelaId,
+        tipo_estamento: formData.estamento,
+        semestre: formData.estamento === "Estudiante" ? formData.edad_o_semestre_si_aplica : null,
+      });
+      const vincData = {
+        id_persona: newPersona.id_persona,
+        id_unidad_organizativa: parseInt(formData.escuelaId, 10),
+        tipo_estamento: formData.estamento,
+        semestre: formData.estamento === "Estudiante" ? parseInt(formData.edad_o_semestre_si_aplica, 10) || 1 : null,
+        estado: true,
+      };
+
+      const newVinculacion = await apiRequest("vinculacion", "POST", vincData);
+
+      // 3. Enviamos ambos IDs recién creados al padre
+      const idsParaRegistro = {
+        persona: newPersona.id_persona,
+        vinculacion: newVinculacion.id_vinculacion,
+      };
+
+      console.log("Enviando nuevos registros al padre:", idsParaRegistro);
+      
+      await onSubmit(idsParaRegistro);
+      resetAll();
+      alert("Persona y vinculación creadas con éxito");
+
+    } catch (error) {
+      console.error("Error en el proceso de registro:", error);
+      alert("Error al guardar los datos. Verifique la conexión o los campos.");
     }
-  };
+  }
+};
 
   const canSubmit = selectedPerson || (isNewPersonMode && isFormValid());
 

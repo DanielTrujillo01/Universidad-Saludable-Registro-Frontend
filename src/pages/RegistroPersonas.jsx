@@ -37,7 +37,6 @@ export function RegistroPersonas() {
 
   const [selectedDate, setSelectedDate] = useState("");
   const [availableSecciones, setAvailableSecciones] = useState([]);
-  const [availableActivities, setAvailableActivities] = useState([]);
   const [registeredPersons, setRegisteredPersons] = useState([]);
   const [showSelectorModal, setShowSelectorModal] = useState(false);
   const [activeModal, setActiveModal] = useState(null); // "accion", "actividad", "seccion"
@@ -81,38 +80,6 @@ export function RegistroPersonas() {
     fetchData();
   }, []);
 
-  // 3. EFECTO NUEVO: Cargar actividades cuando se selecciona una acción
-  useEffect(() => {
-    async function fetchActivities() {
-      if (!selectedAccionId) {
-        setAvailableActivities([]);
-        setSelectedActivityId("");
-        return;
-      }
-
-      setLoadingActivities(true);
-
-      try {
-        const actividades = await apiRequest(
-          "accion",
-          "GET",
-          null,
-          `${selectedAccionId}/actividades`,
-        );
-
-        setAvailableActivities(actividades);
-      } catch (error) {
-        console.error("Error cargando actividades:", error);
-        setAvailableActivities([]);
-        toast.error("No se pudieron cargar las actividades.");
-      } finally {
-        setLoadingActivities(false);
-      }
-    }
-
-    fetchActivities();
-  }, [selectedAccionId]);
-
   useEffect(() => {
     async function fetchThemes() {
       if (!selectedActivityId) {
@@ -148,6 +115,13 @@ export function RegistroPersonas() {
   // En RegistroPersonas.jsx
 
   const handlePersonSubmit = async (dataDesdeHijo) => {
+    console.log(
+      "Datos de la participacion:",
+      dataDesdeHijo.persona,
+      selectedSedeId,
+      selectedActivityId,
+      selectedDate,
+    );
 
     if (
       !dataDesdeHijo.persona ||
@@ -160,6 +134,7 @@ export function RegistroPersonas() {
       );
       return;
     }
+
     //Armamos el body final de la Participación
     const body = {
       persona: dataDesdeHijo.persona,
@@ -260,7 +235,6 @@ export function RegistroPersonas() {
                   setSelectedSeccionId("");
                   setSelectedSedeId("");
                   setSelectedDate("");
-                  setAvailableActivities([]);
                   setAvailableSecciones([]);
                 }}
                 required
@@ -272,23 +246,15 @@ export function RegistroPersonas() {
                     <p className="text-sm text-gray-500">
                       Cargando actividades...
                     </p>
-                  ) : availableActivities.length === 0 ? (
-                    <p className="text-sm text-orange-600">
-                      Esta acción no tiene actividades registradas.
-                    </p>
                   ) : (
-
                     <AsyncEntitySelect
                       entityType="actividad"
                       label="Seleccionar Actividad"
                       value={selectedActivityId}
-                      parentId={selectedAccionId} // <--- Pasamos el ID seleccionado arriba
-                      parentField="actividadasociada__accion_id" // <--- El nombre del campo que espera tu backend
                       onSelect={(id) => {
                         setSelectedActivityId(id);
                         setSelectedSeccionId("");
                       }}
-                      
                       required
                     />
                   )}

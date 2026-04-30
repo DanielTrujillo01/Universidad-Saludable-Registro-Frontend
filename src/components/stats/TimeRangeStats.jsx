@@ -12,8 +12,8 @@ import {
   Line,
 } from "recharts";
 import { apiRequest } from "../../api/api";
-import { fetchActivityDetail } from "../../Funtions/FetchFuntions";
-import { ActivityDetailCard } from "./Modals/ActivityDetailsCard";
+import { fetchActionDetail } from "../../Funtions/FetchFuntions";
+import { ActionDetailCard } from "./Modals/ActionDetailCard";
 
 const MONTHS = [
   { val: 1, name: "Enero" },
@@ -38,7 +38,7 @@ export function TimeRangeStats() {
     (_, i) => baseYear + i,
   );
 
-  const [selectedActivity, setSelectedActivity] = useState(null);
+  const [selectedAction, setSelectedAction] = useState(null);
 
   // --- ESTADOS DE LA VISTA PRINCIPAL ---
   const [mainViewMode, setMainViewMode] = useState("monthly");
@@ -155,7 +155,7 @@ export function TimeRangeStats() {
     try {
       const data = await fetchActivityDetailRange(id);
       console.log("Id enviado:", id);
-      setSelectedActivity(data);
+      setSelectedAction(data);
     } catch (error) {
       console.error("Error obteniendo detalle:", error);
     }

@@ -36,7 +36,7 @@ export const API_ENDPOINTS = {
   dashboardEscuelaDetalle: "dashboard-stats/detalle_escuela",
   dashboardFacultad: "dashboard-stats/por_facultad",
   dashboardFacultadDetalle: "dashboard-stats/detalle_facultad",
-  dashboardDetalleActividad: "dashboard-stats/detalle_actividad",
+  dashboardDetalleAccion: "dashboard-stats/detalle_accion",
   dashboardTiempoStats: "dashboard-stats/por_tiempo_stats",
   dashboardTiempoDetalle: "dashboard-stats/detalle_rango_tiempo",
   dashboardActividadDetalleRange: "dashboard-stats/detalle_actividad_range",

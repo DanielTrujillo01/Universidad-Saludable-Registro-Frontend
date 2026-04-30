@@ -43,6 +43,7 @@ export function StatsPage() {
     const cargarDatosGenerales = async () => {
       try {
         const data = await apiRequest("dashboardResumen", "GET");
+        console.log("Datos generales cargados:", data); 
         setStats(data);
       } catch (error) {
         console.error("Error cargando dashboard", error);

@@ -1,9 +1,9 @@
 // FetchFunctions.js
 import { apiRequest } from "../api/api";
 
-export const fetchActivityDetail = async (id) => {
+export const fetchActionDetail = async (id) => {
   return await apiRequest(
-    "dashboardDetalleActividad",
+    "dashboardDetalleAccion",
     "GET",
     null,
     `?id=${id}`

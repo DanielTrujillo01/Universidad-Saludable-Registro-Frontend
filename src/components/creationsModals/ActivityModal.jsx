@@ -35,7 +35,7 @@ export function ActivityModal({ open, onClose, onSubmit }) {
 
   // --- VALIDACIÓN ---
   // El formulario es válido solo si tiene nombre (sin espacios vacíos) y una acción seleccionada
-  const isFormValid = nombre.trim() !== "" && accion !== "";
+  const isFormValid = nombre.trim() !== "" 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,7 +46,6 @@ export function ActivityModal({ open, onClose, onSubmit }) {
     const data = {
       nombre: normalizeText(nombre),
       nombre_original: nombre,
-      id_accion: parseInt(accion, 10),
     };
 
     try {
@@ -98,17 +97,6 @@ export function ActivityModal({ open, onClose, onSubmit }) {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
               placeholder="Ej: Taller de reforzamiento"
               autoFocus
-            />
-          </div>
-
-          {/* BUSCADOR ASÍNCRONO DE ACCIÓN */}
-          <div>
-            <AsyncEntitySelect
-              entityType="accion"
-              label="Buscar Acción"
-              onSelect={setAccion}
-              placeholder="Escribe para buscar una acción..."
-              required={true}
             />
           </div>
 
