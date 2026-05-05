@@ -1,5 +1,14 @@
 import { useState, useEffect } from "react";
-import { Calendar, TrendingUp, Users, Filter, X, List } from "lucide-react";
+// Agregado 'Target' a las importaciones
+import {
+  Calendar,
+  TrendingUp,
+  Users,
+  Filter,
+  X,
+  List,
+  Target,
+} from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -12,8 +21,8 @@ import {
   Line,
 } from "recharts";
 import { apiRequest } from "../../api/api";
-import { fetchActionDetail } from "../../Funtions/FetchFuntions";
-import { ActionDetailCard } from "./Modals/ActionDetailCard";
+import { ActionDetailCard } from "./SubComponents/ActionDetailCard";
+import { CustomTooltip } from "./SubComponents/CustomTooltip";
 
 const MONTHS = [
   { val: 1, name: "Enero" },
@@ -39,20 +48,16 @@ export function TimeRangeStats() {
   );
 
   const [selectedAction, setSelectedAction] = useState(null);
-
-  // --- ESTADOS DE LA VISTA PRINCIPAL ---
   const [mainViewMode, setMainViewMode] = useState("monthly");
   const [mainYear, setMainYear] = useState(currentYear);
   const [chartData, setChartData] = useState([]);
   const [loadingCharts, setLoadingCharts] = useState(true);
 
-  // --- ESTADOS DEL MODAL ---
   const [showModal, setShowModal] = useState(false);
   const [filterMode, setFilterMode] = useState("monthly");
   const [filterYear, setFilterYear] = useState(currentYear);
   const [range, setRange] = useState({ start: 1, end: 12 });
   const [detailData, setDetailData] = useState(null);
-  const [detailActivityData, setDetailActivityData] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   // 1. Cargar Gráficos Principales
@@ -66,7 +71,7 @@ export function TimeRangeStats() {
           null,
           `?mode=${mainViewMode}&anio=${mainYear}`,
         );
-        setChartData(resp);
+        setChartData(resp || []);
       } catch (error) {
         console.error("Error cargando gráficas:", error);
       } finally {
@@ -76,20 +81,22 @@ export function TimeRangeStats() {
     fetchCharts();
   }, [mainViewMode, mainYear]);
 
-  // 2. Manejo de cambio de pestaña en el MODAL
-  const handleModalModeChange = (mode) => {
-    setFilterMode(mode);
-    setDetailData(null);
-    if (mode === "monthly") {
-      setRange({ start: 1, end: 12 });
-    } else {
-      setRange({ start: baseYear, end: currentYear });
-    }
-  };
+  // 2. Cálculos de KPIs (Corregidos nombres de propiedades según tus reducers)
+  const totalActivities = chartData.reduce(
+    (sum, item) => sum + (item.total_actividades || 0),
+    0,
+  );
+  const totalParticipants = chartData.reduce(
+    (sum, item) => sum + (item.total_participaciones || 0),
+    0,
+  );
+  const totalActions = chartData.reduce(
+    (sum, item) => sum + (item.total_acciones || 0),
+    0,
+  );
 
-  // 3. Buscar Detalles
-  const fetchDetail = async () => {
-    setLoadingDetail(true);
+  // 3. Buscar Detalles (Refactorizado para evitar repetición)
+  const getRangeDates = () => {
     let inicio, fin;
     const startVal = String(range.start).padStart(2, "0");
     const endVal = String(range.end).padStart(2, "0");
@@ -102,7 +109,12 @@ export function TimeRangeStats() {
       inicio = `${range.start}-01-01`;
       fin = `${range.end}-12-31`;
     }
+    return { inicio, fin };
+  };
 
+  const fetchDetail = async () => {
+    setLoadingDetail(true);
+    const { inicio, fin } = getRangeDates();
     try {
       const resp = await apiRequest(
         "dashboardTiempoDetalle",
@@ -111,76 +123,42 @@ export function TimeRangeStats() {
         `?inicio=${inicio}&fin=${fin}`,
       );
       setDetailData(resp);
-      console.log("Detalle cargado:", resp);
     } catch (error) {
       console.error("Error cargando detalle:", error);
-    } finally {
-      setLoadingDetail(false);
-    }
-  };
-
-  const fetchActivityDetailRange = async (id) => {
-    setLoadingDetail(true);
-    let inicio, fin;
-    const startVal = String(range.start).padStart(2, "0");
-    const endVal = String(range.end).padStart(2, "0");
-
-    if (filterMode === "monthly") {
-      inicio = `${filterYear}-${startVal}-01`;
-      const ultimoDia = new Date(filterYear, range.end, 0).getDate();
-      fin = `${filterYear}-${endVal}-${ultimoDia}`;
-    } else {
-      inicio = `${range.start}-01-01`;
-      fin = `${range.end}-12-31`;
-    }
-
-    try {
-      const resp = await apiRequest(
-        "dashboardActividadDetalleRange",
-        "GET",
-        null,
-        `?id=${id}&inicio=${inicio}&fin=${fin}`,
-      );
-      console.log("Detalle cargado desde FetchActivityDetailRange:", resp);
-      return resp;
-    } catch (error) {
-      console.error("Error cargando detalle:", error);
-      return null;
     } finally {
       setLoadingDetail(false);
     }
   };
 
   const handleOpenDetailModal = async (id) => {
+    setLoadingDetail(true);
+    const { inicio, fin } = getRangeDates();
     try {
-      const data = await fetchActivityDetailRange(id);
-      console.log("Id enviado:", id);
-      setSelectedAction(data);
+      const resp = await apiRequest(
+        "dashboardAccionDetalleRange",
+        "GET",
+        null,
+        `?id=${id}&inicio=${inicio}&fin=${fin}`,
+      );
+      setSelectedAction(resp);
     } catch (error) {
       console.error("Error obteniendo detalle:", error);
+    } finally {
+      setLoadingDetail(false);
     }
   };
 
-  const totalActivities = chartData.reduce(
-    (sum, item) => sum + item.actividades,
-    0,
-  );
-  const totalParticipants = chartData.reduce(
-    (sum, item) => sum + item.participantes,
-    0,
-  );
-
   return (
     <div className="p-6 space-y-6 relative">
-      {/* ---------------- HEADER & KPI PRINCIPALES ---------------- */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-slate-900 flex items-center gap-2 font-bold text-xl">
-            <Calendar className="w-6 h-6 text-blue-600" />
+          <h2 className="text-slate-900 flex items-center gap-2 font-black text-2xl tracking-tight">
+            <Calendar className="w-7 h-7 text-indigo-600" />
             Análisis Temporal
           </h2>
-          <p className="text-slate-500 text-sm">
-            Panorama general del impacto histórico
+          <p className="text-slate-500 text-sm font-medium">
+            Distribución estratégica de impacto por periodos
           </p>
         </div>
 
@@ -188,312 +166,293 @@ export function TimeRangeStats() {
           <select
             value={mainYear}
             onChange={(e) => setMainYear(e.target.value)}
-            className="bg-white border border-slate-200 text-slate-600 text-sm rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-blue-100 outline-none"
+            className="bg-white border border-slate-200 text-slate-700 text-sm rounded-xl px-4 py-2.5 font-bold shadow-sm outline-none focus:ring-2 focus:ring-indigo-500/20"
           >
             {years.map((y) => (
               <option key={y} value={y}>
-                Año {y}
+                Periodo {y}
               </option>
             ))}
           </select>
-
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-blue-600/20 transition-all hover:scale-105 active:scale-95"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
           >
-            <Filter className="w-4 h-4" />
-            Explorar Detalles
+            <Filter className="w-4 h-4" /> Explorar Detalles
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center">
-          <div>
-            <p className="text-slate-400 text-xs font-bold uppercase">
-              Actividades ({mainYear})
-            </p>
-            <p className="text-3xl font-black text-slate-800">
-              {totalActivities}
-            </p>
-          </div>
-          <div className="bg-blue-50 p-3 rounded-xl">
-            <TrendingUp className="w-6 h-6 text-blue-600" />
-          </div>
-        </div>
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center">
-          <div>
-            <p className="text-slate-400 text-xs font-bold uppercase">
-              Participantes ({mainYear})
-            </p>
-            <p className="text-3xl font-black text-slate-800">
-              {totalParticipants}
-            </p>
-          </div>
-          <div className="bg-indigo-50 p-3 rounded-xl">
-            <Users className="w-6 h-6 text-indigo-600" />
-          </div>
-        </div>
+      {/* KPIs PRINCIPALES (Corregido: ya no usa objeto kpis inexistente) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <KPICard
+          title="Total Acciones"
+          value={totalActions}
+          icon={Target}
+          color="text-red-600"
+          bg="bg-indigo-50"
+        />
+        <KPICard
+          title="Total Actividades"
+          value={totalActivities}
+          icon={TrendingUp}
+          color="text-purple-600"
+          bg="bg-blue-50"
+        />
+        <KPICard
+          title="Participantes"
+          value={totalParticipants}
+          icon={Users}
+          color="text-emerald-600"
+          bg="bg-emerald-50"
+        />
       </div>
 
-      {/* ---------------- GRÁFICAS DE FONDO ---------------- */}
+      {/* GRÁFICAS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-[350px]">
-          <h3 className="text-slate-700 font-bold mb-4 text-sm uppercase tracking-wide">
-            Frecuencia Mensual
-          </h3>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={chartData}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                stroke="#f1f5f9"
-              />
-              <XAxis
-                dataKey="name"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#94a3b8", fontSize: 11 }}
-                dy={10}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#94a3b8", fontSize: 11 }}
-              />
-              <Tooltip
-                cursor={{ fill: "#f8fafc" }}
-                contentStyle={{
-                  borderRadius: "8px",
-                  border: "none",
-                  boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                }}
-              />
-              {/* Eliminado barSize para que use el ancho natural máximo */}
-              <Bar dataKey="actividades" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <ChartContainer title="Volumen Operativo (Actividades)">
+          {loadingCharts ? (
+            <Loader />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartData}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#f1f5f9"
+                />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#94a3b8", fontSize: 11 }}
+                  dy={10}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#94a3b8", fontSize: 11 }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar
+                  dataKey="total_actividades"
+                  fill="#6366f1"
+                  radius={[6, 6, 0, 0]}
+                  barSize={35}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </ChartContainer>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-[350px]">
-          <h3 className="text-slate-700 font-bold mb-4 text-sm uppercase tracking-wide">
-            Asistencia Mensual
-          </h3>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={chartData}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                vertical={false}
-                stroke="#f1f5f9"
-              />
-              <XAxis
-                dataKey="name"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#94a3b8", fontSize: 11 }}
-                dy={10}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#94a3b8", fontSize: 11 }}
-              />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: "8px",
-                  border: "none",
-                  boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="participantes"
-                stroke="#6366f1"
-                strokeWidth={4}
-                dot={{ r: 4, strokeWidth: 0 }}
-                activeDot={{ r: 8 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        <ChartContainer title="Curva de Asistencia">
+          {loadingCharts ? (
+            <Loader />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={chartData}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#f1f5f9"
+                />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#94a3b8", fontSize: 11 }}
+                  dy={10}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#94a3b8", fontSize: 11 }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey="total_participaciones"
+                  stroke="#10b981"
+                  strokeWidth={4}
+                  dot={{ r: 4, fill: "#10b981", strokeWidth: 0 }}
+                  activeDot={{ r: 8 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </ChartContainer>
       </div>
 
-      {/* ---------------- MODAL DE DETALLES ---------------- */}
+      {/* --- MODAL DE DETALLES (Mantenido tu diseño pero corregido el scroll y cierres) --- */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
             onClick={() => setShowModal(false)}
           />
-
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col relative z-10 animate-in fade-in zoom-in-95 duration-300 overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
-              <div>
-                <h3 className="text-xl font-black text-slate-800">
-                  Explorador de Detalles
-                </h3>
-                <p className="text-slate-500 text-sm">
-                  Filtra por fechas para ver el impacto granular
-                </p>
-              </div>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col relative z-10 overflow-hidden">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
+              <h3 className="text-xl font-black text-slate-800">
+                Explorador de Detalles
+              </h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                className="p-2 hover:bg-slate-100 rounded-full"
               >
-                <X className="w-6 h-6 text-slate-400" />
+                <X />
               </button>
             </div>
 
-            {/* Modal Body Scrollable */}
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50 custom-scrollbar">
-              {/* Controles de Filtro */}
-              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-8 sticky top-0 z-10">
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+              {/* Filtros */}
+              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-8">
                 <div className="flex gap-2 mb-4">
                   <button
-                    onClick={() => handleModalModeChange("monthly")}
-                    className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-all ${filterMode === "monthly" ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+                    onClick={() => setFilterMode("monthly")}
+                    className={`flex-1 py-2 rounded-lg font-bold ${filterMode === "monthly" ? "bg-indigo-50 text-indigo-700 border-indigo-200" : "bg-slate-50 text-slate-500"}`}
                   >
-                    Rango Mensual
+                    Mensual
                   </button>
                   <button
-                    onClick={() => handleModalModeChange("yearly")}
-                    className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-all ${filterMode === "yearly" ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+                    onClick={() => setFilterMode("yearly")}
+                    className={`flex-1 py-2 rounded-lg font-bold ${filterMode === "yearly" ? "bg-indigo-50 text-indigo-700 border-indigo-200" : "bg-slate-50 text-slate-500"}`}
                   >
-                    Rango Anual
+                    Anual
                   </button>
                 </div>
-
                 <div className="flex flex-col md:flex-row gap-4 items-end">
                   {filterMode === "monthly" && (
-                    <div className="w-full md:w-1/3">
-                      <label className="text-xs font-bold text-slate-400 uppercase block mb-1">
-                        Año
-                      </label>
-                      <select
-                        value={filterYear}
-                        onChange={(e) => setFilterYear(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-                      >
-                        {years.map((y) => (
-                          <option key={y} value={y}>
-                            {y}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <select
+                      value={filterYear}
+                      onChange={(e) => setFilterYear(e.target.value)}
+                      className="p-2.5 bg-slate-50 border rounded-lg flex-1"
+                    >
+                      {years.map((y) => (
+                        <option key={y} value={y}>
+                          {y}
+                        </option>
+                      ))}
+                    </select>
                   )}
-
-                  <div className="flex-1 w-full">
-                    <label className="text-xs font-bold text-slate-400 uppercase block mb-1">
-                      Desde - Hasta
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <select
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none"
-                        value={range.start}
-                        onChange={(e) =>
-                          setRange({ ...range, start: Number(e.target.value) })
-                        }
-                      >
-                        {filterMode === "monthly"
-                          ? MONTHS.map((m) => (
-                              <option key={m.val} value={m.val}>
-                                {m.name}
-                              </option>
-                            ))
-                          : years.map((y) => (
-                              <option key={y} value={y}>
-                                {y}
-                              </option>
-                            ))}
-                      </select>
-                      <span className="text-slate-300">-</span>
-                      <select
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-slate-700 outline-none"
-                        value={range.end}
-                        onChange={(e) =>
-                          setRange({ ...range, end: Number(e.target.value) })
-                        }
-                      >
-                        {filterMode === "monthly"
-                          ? MONTHS.map((m) => (
-                              <option key={m.val} value={m.val}>
-                                {m.name}
-                              </option>
-                            ))
-                          : years.map((y) => (
-                              <option key={y} value={y}>
-                                {y}
-                              </option>
-                            ))}
-                      </select>
-                    </div>
+                  <div className="flex gap-2 flex-[2]">
+                    <select
+                      value={range.start}
+                      onChange={(e) =>
+                        setRange({ ...range, start: Number(e.target.value) })
+                      }
+                      className="p-2.5 bg-slate-50 border rounded-lg flex-1"
+                    >
+                      {filterMode === "monthly"
+                        ? MONTHS.map((m) => (
+                            <option key={m.val} value={m.val}>
+                              {m.name}
+                            </option>
+                          ))
+                        : years.map((y) => (
+                            <option key={y} value={y}>
+                              {y}
+                            </option>
+                          ))}
+                    </select>
+                    <select
+                      value={range.end}
+                      onChange={(e) =>
+                        setRange({ ...range, end: Number(e.target.value) })
+                      }
+                      className="p-2.5 bg-slate-50 border rounded-lg flex-1"
+                    >
+                      {filterMode === "monthly"
+                        ? MONTHS.map((m) => (
+                            <option key={m.val} value={m.val}>
+                              {m.name}
+                            </option>
+                          ))
+                        : years.map((y) => (
+                            <option key={y} value={y}>
+                              {y}
+                            </option>
+                          ))}
+                    </select>
                   </div>
-
                   <button
                     onClick={fetchDetail}
-                    disabled={loadingDetail}
-                    className="w-full md:w-auto bg-slate-900 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-slate-900/20"
+                    className="bg-slate-900 text-white px-8 py-2.5 rounded-lg font-bold"
                   >
-                    {loadingDetail ? "..." : "Ver Resultados"}
+                    {loadingDetail ? "Cargando..." : "Ver Resultados"}
                   </button>
                 </div>
               </div>
 
-              {/* ---------------- RESULTADOS (DISEÑO ORIGINAL RESTAURADO) ---------------- */}
+              {/* Resultados */}
               {detailData && (
                 <div className="bg-slate-900 rounded-3xl p-6 md:p-8 text-white shadow-xl animate-in slide-in-from-bottom-4 duration-500">
-                  {/* Cabecera de la tarjeta oscura */}
+                  {/* CABECERA */}
                   <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4 border-b border-white/10 pb-6">
                     <div>
                       <h3 className="text-2xl font-black tracking-tight text-white">
                         Resultados Encontrados
                       </h3>
+
                       <p className="text-slate-400 text-sm mt-1">
                         {filterMode === "monthly"
                           ? `Filtrado por meses del año ${filterYear}`
                           : "Filtrado multi-anual"}
                       </p>
                     </div>
+
                     <div className="flex gap-4 text-right w-full md:w-auto">
+                      <div className="bg-white/10 p-3 rounded-xl flex-1 md:flex-none">
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                          Acciones
+                        </p>
+
+                        <p className="text-2xl font-black text-indigo-400">
+                          {detailData.total_acciones}
+                        </p>
+                      </div>
+
                       <div className="bg-white/10 p-3 rounded-xl flex-1 md:flex-none">
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                           Actividades
                         </p>
+
                         <p className="text-2xl font-black text-blue-400">
                           {detailData.total_actividades}
                         </p>
                       </div>
+
                       <div className="bg-white/10 p-3 rounded-xl flex-1 md:flex-none">
                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                           Participantes
                         </p>
+
                         <p className="text-2xl font-black text-emerald-400">
-                          {detailData.total_participantes}
+                          {detailData.total_participaciones}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {detailData.estamento_participantes?.length > 0 && (
-                    <div className="pt-3 mt-3 md-10 border-white/10 space-y-2">
+                  {/* ESTAMENTOS */}
+                  {detailData.estamentos?.length > 0 && (
+                    <div className="pt-3 mt-3 space-y-2">
                       <div className="text-indigo-200 font-bold text-xs uppercase tracking-wider">
                         Participación por Estamento
                       </div>
 
-                      {detailData.estamento_participantes.map((e, index) => (
+                      {detailData.estamentos.map((e, index) => (
                         <div
                           key={index}
                           className="flex justify-between items-center bg-indigo-800/40 px-3 py-2 rounded-lg"
                         >
                           <span className="text-xs">{e.estamento}</span>
+
                           <span className="text-xs font-bold bg-emerald-500/90 px-2 py-1 rounded-md">
                             {e.cantidad} ({e.porcentaje}%)
                           </span>
@@ -502,74 +461,106 @@ export function TimeRangeStats() {
                     </div>
                   )}
 
-                  {/* Lista en GRID (Restaurada) */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-5">
-                    {detailData.listado.length > 0 ? (
-                      detailData.listado.map((act, i) => (
-                        <div
+                  {/* GRID DE ACCIONES */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    {detailData.acciones?.length > 0 ? (
+                      detailData.acciones.map((accion, i) => (
+                        <button
                           key={i}
-                          className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition-colors group h-[360px] flex flex-col"
+                          type="button"
+                          onClick={() =>
+                            handleOpenDetailModal(accion.id_accion)
+                          }
+                          className="text-left bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 hover:border-indigo-400/30 transition-all group flex flex-col"
                         >
-                          <div className="flex justify-between items-start mb-4 gap-2">
-                            <h4 className="min-w-0 break-words font-bold text-lg leading-tight group-hover:text-blue-400 transition-colors text-white">
-                              {act.nombre}
-                            </h4>
-                            <div className="flex flex-col gap-1 items-end shrink-0">
-                              <span className="bg-blue-500/20 text-blue-400 text-[10px] px-2 py-1 rounded-full font-black uppercase">
-                                Actividad
-                              </span>
-                            </div>
-                          </div>
+                          {/* HEADER ACCION */}
+                          <div className="flex justify-between items-start gap-3 mb-5">
+                            <div className="min-w-0">
+                              <h4 className="font-black text-lg text-white break-words leading-tight group-hover:text-indigo-300 transition-colors">
+                                {accion.nombre_accion}
+                              </h4>
 
-                          <div className="space-y-3 flex flex-col flex-1">
-                            <div className="rounded-xl flex justify-between items-center">
-                              <p className="text-xs text-slate-400 font-bold flex items-center gap-2">
-                                <List className="w-3 h-3" /> TEMAS / TALLERES:
+                              <p className="text-[10px] text-slate-500 uppercase mt-1 tracking-wider">
+                                Acción Estratégica
                               </p>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleOpenDetailModal(act.id_actividad)
-                                }
-                                className="bg-green-500/20 text-green-400 text-[10px] px-2 py-1 rounded-full font-black uppercase hover:bg-green-500/30 transition-colors"
-                              >
-                                Ver Detalles
-                              </button>
                             </div>
 
-                            <div className="grid gap-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
-                              {Object.entries(act.temas).map(
-                                ([tema, count], idx) => (
-                                  <div
-                                    key={idx}
-                                    className="flex justify-between items-center text-sm bg-black/20 p-2 rounded-lg"
-                                  >
-                                    <span className="text-slate-300 pr-2 whitespace-normal break-words">
-                                      {tema}
-                                    </span>
+                            <div className="flex flex-col items-end gap-2 shrink-0">
+                              <div className="bg-indigo-500/20 text-indigo-300 text-[10px] px-3 py-1 rounded-full font-black uppercase">
+                                {accion.actividades?.length || 0} actividades
+                              </div>
 
-                                    <span className="font-bold text-white shrink-0">
-                                      {count}{" "}
-                                      <span className="text-[10px] text-slate-500 font-normal">
-                                        asistentes
-                                      </span>
-                                    </span>
-                                  </div>
-                                ),
-                              )}
-                            </div>
-
-                            <div className="pt-3 mt-auto border-t border-white/5 flex justify-between items-center">
-                              <span className="text-xs text-slate-500">
-                                Participación total:
-                              </span>
-                              <span className="text-sm font-black text-emerald-400">
-                                {act.participantes_actividad}
-                              </span>
+                              <div className="bg-green-500/20 text-green-400 text-[10px] px-3 py-1 rounded-full font-black uppercase group-hover:bg-green-500/30 transition-colors">
+                                Ver Detalle
+                              </div>
                             </div>
                           </div>
-                        </div>
+
+                          {/* ACTIVIDADES */}
+                          <div className="space-y-4 flex-1">
+                            {accion.actividades?.map((actividad, idx) => (
+                              <div
+                                key={idx}
+                                className="bg-black/20 border border-white/5 rounded-xl p-4"
+                              >
+                                {/* HEADER ACTIVIDAD */}
+                                <div className="mb-3">
+                                  <h5 className="font-bold text-sm text-slate-200 break-words">
+                                    {actividad.nombre_actividad}
+                                  </h5>
+
+                                  <p className="text-[10px] text-slate-500 uppercase mt-1">
+                                    Actividad Operativa
+                                  </p>
+                                </div>
+
+                                {/* SECCIONES */}
+                                <div className="space-y-2">
+                                  {actividad.secciones?.map((sec, secIdx) => (
+                                    <div
+                                      key={secIdx}
+                                      className="flex justify-between items-center text-xs bg-white/5 p-2 rounded-lg"
+                                    >
+                                      <span className="text-slate-300 break-words pr-2">
+                                        {sec.nombre}
+                                      </span>
+
+                                      <span className="font-bold text-white shrink-0">
+                                        {sec.cantidad}
+
+                                        <span className="text-[10px] text-slate-500 font-normal ml-1">
+                                          asistentes
+                                        </span>
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* FOOTER ACTIVIDAD */}
+                                <div className="pt-3 mt-3 border-t border-white/10 flex justify-between items-center">
+                                  <span className="text-xs text-slate-500">
+                                    Participación total:
+                                  </span>
+
+                                  <span className="text-sm font-black text-emerald-400">
+                                    {actividad.participantes_actividad}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* FOOTER ACCION */}
+                          <div className="pt-4 mt-5 border-t border-white/10 flex justify-between items-center">
+                            <span className="text-xs text-slate-500">
+                              Participación total de la acción:
+                            </span>
+
+                            <span className="text-lg font-black text-indigo-300">
+                              {accion.total_participantes_accion}
+                            </span>
+                          </div>
+                        </button>
                       ))
                     ) : (
                       <div className="col-span-2 text-center py-12 text-slate-500 bg-white/5 rounded-2xl border border-dashed border-white/10">
@@ -580,9 +571,11 @@ export function TimeRangeStats() {
                 </div>
               )}
 
+              {/* Estado vacío */}
               {!detailData && !loadingDetail && (
                 <div className="text-center py-20 text-slate-400 opacity-60">
                   <Filter className="w-16 h-16 mx-auto text-slate-300 mb-4" />
+
                   <p className="font-medium text-lg">
                     Selecciona un rango de fechas y presiona "Ver Resultados"
                   </p>
@@ -592,22 +585,60 @@ export function TimeRangeStats() {
           </div>
         </div>
       )}
+
       {/* MODAL DE DETALLE DE ACTIVIDAD */}
-      {selectedActivity && (
+      {selectedAction && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setSelectedActivity(null)}
+            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            onClick={() => setSelectedAction(null)}
           />
-
-          <div className="relative z-10 w-full max-w-6xl max-h-[95vh] overflow-y-auto">
-            <ActivityDetailCard
-              activity={selectedActivity}
-              onClose={() => setSelectedActivity(null)}
+          <div className="relative z-10 w-full max-w-4xl">
+            <ActionDetailCard
+              action={selectedAction}
+              onClose={() => setSelectedAction(null)}
             />
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Sub-componentes auxiliares
+function KPICard({ title, value, icon: Icon, color, bg }) {
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center">
+      <div>
+        <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-1">
+          {title}
+        </p>
+        <p className="text-3xl font-black text-slate-800">
+          {value.toLocaleString()}
+        </p>
+      </div>
+      <div className={`${bg} p-4 rounded-2xl`}>
+        <Icon className={`w-6 h-6 ${color}`} />
+      </div>
+    </div>
+  );
+}
+
+function ChartContainer({ title, children }) {
+  return (
+    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm h-[400px] flex flex-col">
+      <h3 className="text-slate-700 font-black mb-6 text-xs uppercase tracking-widest flex items-center gap-2">
+        <div className="w-1.5 h-4 bg-indigo-500 rounded-full" /> {title}
+      </h3>
+      <div className="flex-1">{children}</div>
+    </div>
+  );
+}
+
+function Loader() {
+  return (
+    <div className="h-full w-full flex items-center justify-center text-slate-400 text-sm font-bold">
+      Cargando datos...
     </div>
   );
 }

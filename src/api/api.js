@@ -39,7 +39,7 @@ export const API_ENDPOINTS = {
   dashboardDetalleAccion: "dashboard-stats/detalle_accion",
   dashboardTiempoStats: "dashboard-stats/por_tiempo_stats",
   dashboardTiempoDetalle: "dashboard-stats/detalle_rango_tiempo",
-  dashboardActividadDetalleRange: "dashboard-stats/detalle_actividad_range",
+  dashboardAccionDetalleRange: "dashboard-stats/detalle_accion_range",
 };
 
 const apiClient = axios.create({

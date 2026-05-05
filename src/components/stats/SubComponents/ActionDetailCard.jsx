@@ -1,4 +1,4 @@
-import { Users, Target, Hash, GitBranch, List, ChevronRight, LayoutGrid } from "lucide-react";
+import { Users, Target, CalendarCheck2, Hash, GitBranch, List, ChevronRight, LayoutGrid } from "lucide-react";
 import { useState, useEffect } from "react";
 
 // Renombramos a ActionDetailCard para reflejar la nueva jerarquía
@@ -49,11 +49,18 @@ export function ActionDetailCard({ action, onClose }) {
           <div className="space-y-4">
             <div className="bg-indigo-600 rounded-xl p-4 shadow-lg shadow-indigo-900/20">
               <p className="text-indigo-100 text-xs uppercase tracking-wider font-bold mb-1 flex items-center gap-2">
-                <Users className="w-3 h-3" /> Impacto de la Acción
+                <Users className="w-3 h-3" /> Cobertura
               </p>
-              <p className="text-3xl font-black">{action.total_participantes}</p>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-3xl font-black">Personas</span>
+                <p className="text-3xl font-black">{"Personas únicas: ", action.total_participantes}</p>
+              </div>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-3xl font-black">Asistencias</span>
+                <p className="text-3xl font-black">{"Asistencias totales: ", action.total_asistencias}</p>
+              </div>
               <p className="text-[10px] text-indigo-200 mt-1 opacity-80">
-                Participantes únicos en todas las actividades de esta acción
+                Distribucción de participantes y asistencias en actividades vinculadas
               </p>
             </div>
 
@@ -94,8 +101,15 @@ export function ActionDetailCard({ action, onClose }) {
                         </h5>
                         <p className="text-[10px] text-slate-500 uppercase">Recurso Operativo</p>
                       </div>
-                      <div className="bg-emerald-500/10 text-emerald-400 text-[11px] px-2 py-1 rounded-md font-bold flex items-center gap-1 border border-emerald-500/20">
-                        <Users className="w-3 h-3" /> {act.participantes_en_esta_accion}
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="bg-emerald-500/10 text-emerald-400 text-[11px] px-2 py-1 rounded-md font-bold flex items-center gap-1 border border-emerald-500/20">
+                          <span>Total Personas </span>
+                          <Users className="w-3 h-3" /> {act.participantes_en_esta_accion}
+                        </div>
+                        <div className="bg-emerald-500/10 text-emerald-400 text-[11px] px-2 py-1 rounded-md font-bold flex items-center gap-1 border border-emerald-500/20">
+                          <span>Total asistencias </span>
+                          <CalendarCheck2 className="w-3 h-3" /> {act.asistencias_en_esta_accion}
+                        </div>
                       </div>
                     </div>
 

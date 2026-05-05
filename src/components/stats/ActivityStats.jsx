@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { 
-  Activity, Users, Target, BarChart2, Search, Info, GitBranch, List 
+  Activity, ClipboardCheck, Users, Target, BarChart2, Search, Info, GitBranch, List 
 } from "lucide-react";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
@@ -8,7 +8,7 @@ import {
 } from "recharts";
 import { apiRequest } from "../../api/api";
 import { fetchActionDetail } from "../../Funtions/FetchFuntions";
-import { ActionDetailCard } from "./Modals/ActionDetailCard";
+import { ActionDetailCard } from "./SubComponents/ActionDetailCard";
 
 export function ActivityStats({ data }) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -59,6 +59,7 @@ export function ActivityStats({ data }) {
           <KPICard icon={Target} color="rose" label="Acciones" value={kpis.total_acciones} />
           <KPICard icon={Activity} color="indigo" label="Actividades" value={kpis.total_actividades} />
           <KPICard icon={Users} color="purple" label="Participantes" value={kpis.total_participantes} />
+          <KPICard icon={ClipboardCheck} color="green" label="Asistencias" value={kpis.total_asistencias} />
         </div>
       </div>
 
@@ -158,7 +159,9 @@ function KPICard({ icon: Icon, color, label, value }) {
   const colors = {
     indigo: "bg-indigo-100 text-indigo-600",
     rose: "bg-rose-100 text-rose-600",
-    purple: "bg-purple-100 text-purple-600"
+    purple: "bg-purple-100 text-purple-600",
+    green: "bg-green-100 text-green-600",
+    yellow: "bg-yellow-100 text-yellow-600"
   };
   return (
     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4 min-w-[190px]">
