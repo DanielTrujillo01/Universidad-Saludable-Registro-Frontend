@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Calendar, Target, AlertCircle, GitBranch, Building, GraduationCap, School, Activity, LogOut } from 'lucide-react';
+import { Calendar, Target, AlertCircle, GitBranch, Building, GraduationCap, School, Activity, LogOut ,Archive} from 'lucide-react';
 import { useNavigate } from "react-router-dom"; 
 import { apiRequest } from "../api/api";
 
@@ -12,6 +12,7 @@ import { CampusStats } from '../components/stats/CampusStats';
 import { SchoolStats } from '../components/stats/SchoolStats';
 import { FacultyStats } from '../components/stats/FacultyStats';
 import { ActivityStats } from '../components/stats/ActivityStats';
+import { DependencyStats } from '../components/stats/DependencyStats';
 
 export function StatsPage() {
   const [activeView, setActiveView] = useState('activities'); // Vista inicial ahora es "actividades"
@@ -30,6 +31,7 @@ export function StatsPage() {
     { id: 'campus', label: 'Sede', icon: Building },
     { id: 'school', label: 'Escuela', icon: School },
     { id: 'faculty', label: 'Facultad', icon: GraduationCap },
+    { id: 'dependencia', label: 'Dependencia', icon: Archive },
   ];
 
   const handleLogout = () => {
@@ -82,6 +84,8 @@ export function StatsPage() {
         return <CampusStats data={stats} />;
       case 'faculty':
         return <FacultyStats data={stats} />;
+      case 'dependencia':
+        return <DependencyStats data={stats} />;
       default:
         return <ActivityStats data={stats} />;
     }

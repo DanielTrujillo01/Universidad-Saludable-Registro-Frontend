@@ -7,6 +7,7 @@ import {
   BarChart3,
   PieChart as PieChartIcon,
   Filter,
+  Target,
 } from "lucide-react";
 import {
   BarChart,
@@ -22,6 +23,9 @@ import {
   Legend,
 } from "recharts";
 import { apiRequest } from "../../api/api";
+import { CustomChartTooltip } from "./SubComponents/CustomTooltip";
+import DataCardGrid from "./SubComponents/DataCardGrid";
+import { ActionDetailCard } from "./SubComponents/ActionDetailCard";
 
 const COLORS = [
   "#4f46e5",
@@ -49,6 +53,8 @@ export function SchoolStats() {
     end: "",
   });
   const [estamentoData, setEstamentoData] = useState([]);
+  const [schoolDetail, setSchoolDetail] = useState(null);
+  const [selectedAction, setSelectedAction] = useState(null);
 
   useEffect(() => {
     const fetchSchools = async () => {
@@ -58,10 +64,10 @@ export function SchoolStats() {
         let query = "";
 
         if (appliedRange.start && appliedRange.end) {
-          query = `?start_date=${appliedRange.start}&end_date=${appliedRange.end}`;
+          query = `?start_date=${appliedRange.start}&end_date=${appliedRange.end}&tipo=escuela`;
         }
 
-        const data = await apiRequest("dashboardEscuela", "GET", null, query);
+        const data = await apiRequest("dashboardUnidadOrganizativa", "GET", null, query);
 
         setStats(data);
         setEstamentoData(data.estamento_global);
@@ -90,17 +96,20 @@ export function SchoolStats() {
       let query = `?id=${school.id}`;
 
       if (appliedRange.start && appliedRange.end) {
-        query += `&fecha_inicio=${appliedRange.start}&fecha_fin=${appliedRange.end}`;
+        query += `&fecha_inicio=${appliedRange.start}&fecha_fin=${appliedRange.end}&tipo=escuela`;
+      }else {
+        query += `&tipo=escuela`;
       }
 
       const data = await apiRequest(
-        "dashboardEscuelaDetalle",
+        "dashboardUnidadOrganizativaDetalle",
         "GET",
         null,
         query,
       );
 
       setEstamentoData(data.estamento_participantes);
+      setSchoolDetail(data);
     } catch (error) {
       console.error(error);
     }
@@ -126,6 +135,41 @@ export function SchoolStats() {
 
     if (appliedRange.start || appliedRange.end) {
       setAppliedRange({ start: "", end: "" });
+    }
+  };
+
+  const getRangeDates = () => {
+    const start = appliedRange.start || pendingStart;
+    const end = appliedRange.end || pendingEnd;
+
+    return {
+      inicio: start,
+      fin: end,
+    };
+  };
+
+  const handleOpenDetailModal = async (item) => {
+    const { inicio, fin } = getRangeDates();
+
+    const params = new URLSearchParams({
+      id: item.action_id, // Asegúrate que el nombre coincida con el backend
+      inicio: inicio || "",
+      fin: fin || "",
+      tipo_filtro: "ESCUELA",
+      filtro_id: selectedSchool.id,
+    });
+
+    try {
+      const resp = await apiRequest(
+        "dashboardAccionDetalleRange",
+        "GET",
+        null,
+        `?${params.toString()}`,
+      );
+
+      setSelectedAction(resp);
+    } catch (error) {
+      console.error("Error obteniendo detalle:", error);
     }
   };
 
@@ -173,8 +217,19 @@ export function SchoolStats() {
     (sum, item) => sum + item.actividades,
     0,
   );
+
+  const totalActions = allFilteredData.reduce(
+    (sum, item) => sum + item.acciones,
+    0,
+  );
+
   const totalParticipants = allFilteredData.reduce(
     (sum, item) => sum + item.participantes,
+    0,
+  );
+
+  const totalParticipations = allFilteredData.reduce(
+    (sum, item) => sum + item.participaciones,
     0,
   );
 
@@ -188,12 +243,20 @@ export function SchoolStats() {
     ? stats.data.find((s) => s.id === selectedSchool.id)
     : null;
 
+  const totalParticipationsSchool = selectedSchoolData?.participaciones || 0;
+
   const porcentajeParticipacion = selectedSchoolData
     ? (
         (selectedSchoolData.participantes / grandTotalParticipants) *
         100
       ).toFixed(1)
     : 0;
+
+  const tooltipConfig = [
+    { label: "Acciones", dataKey: "acciones", color: "text-indigo-700" },
+    { label: "Actividades", dataKey: "actividades", color: "text-blue-700" },
+  ];
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -270,6 +333,7 @@ export function SchoolStats() {
                 onClick={() => {
                   setSelectedSchool(null);
                   setEstamentoData(stats.estamento_global);
+                  setSchoolDetail(null);
                 }}
                 className="text-indigo-600 hover:text-indigo-900"
               >
@@ -324,49 +388,67 @@ export function SchoolStats() {
 
       {/* KPI Cards */}
       {!selectedSchool && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 rounded-lg border border-indigo-200">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-500 rounded-lg shadow-sm">
+              <div className="p-2 bg-purple-500 rounded-lg shadow-sm">
                 <School className="w-6 h-6 text-white" />
               </div>
               <div>
                 <p className="text-slate-600 font-medium">Escuelas Listadas</p>
-                <p className="text-2xl font-bold text-indigo-900">
+                <p className="text-2xl font-bold text-purple-900">
                   {allFilteredData.length}
                 </p>
               </div>
             </div>
           </div>
-
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-500 rounded-lg shadow-sm">
+                <Target className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-slate-600 font-medium">Acciones</p>
+                <p className="text-2xl font-bold text-blue-900">
+                  {totalActions}
+                </p>
+              </div>
+            </div>
+          </div>
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-500 rounded-lg shadow-sm">
                 <BookOpen className="w-6 h-6 text-white" />
               </div>
               <div>
-                <p className="text-slate-600 font-medium">
-                  Actividades (Selección)
-                </p>
+                <p className="text-slate-600 font-medium">Actividades</p>
                 <p className="text-2xl font-bold text-blue-900">
                   {totalActivities}
                 </p>
               </div>
             </div>
           </div>
-
           <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-green-500 rounded-lg shadow-sm">
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div>
-                <p className="text-slate-600 font-medium">
-                  Participantes (Selección)
-                </p>
+                <p className="text-slate-600 font-medium">Participantes</p>
+
                 <p className="text-2xl font-bold text-green-900">
                   {totalParticipants}
                 </p>
+
+                <div className="mt-1 inline-flex items-center gap-2 bg-green-100 text-green-700 px-2 py-1 rounded-md">
+                  <span className="text-[11px] uppercase tracking-wide font-semibold">
+                    Participaciones
+                  </span>
+
+                  <span className="text-sm font-bold">
+                    {totalParticipations}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -388,7 +470,21 @@ export function SchoolStats() {
               </div>
             </div>
           </div>
+          <div className="bg-gradient-to-br from-indigo-50 to-violet-100 p-4 rounded-lg border border-violet-200">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-violet-500 rounded-lg shadow-sm">
+                <BarChart3 className="w-6 h-6 text-white" />
+              </div>
 
+              <div>
+                <p className="text-slate-600 font-medium">Acciones</p>
+
+                <p className="text-2xl font-bold text-violet-900">
+                  {schoolDetail?.total_acciones || 0}
+                </p>
+              </div>
+            </div>
+          </div>
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-500 rounded-lg shadow-sm">
@@ -402,7 +498,6 @@ export function SchoolStats() {
               </div>
             </div>
           </div>
-
           <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-green-500 rounded-lg shadow-sm">
@@ -410,9 +505,20 @@ export function SchoolStats() {
               </div>
               <div>
                 <p className="text-slate-600 font-medium">Participantes</p>
+
                 <p className="text-2xl font-bold text-green-900">
                   {selectedSchoolData.participantes}
                 </p>
+
+                <div className="mt-1 inline-flex items-center gap-2 bg-green-100 text-green-700 px-2 py-1 rounded-md">
+                  <span className="text-[11px] uppercase tracking-wide font-semibold">
+                    Participaciones
+                  </span>
+
+                  <span className="text-sm font-bold">
+                    {totalParticipationsSchool}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -476,6 +582,24 @@ export function SchoolStats() {
         </div>
       )}
 
+      {!selectedAction && (
+        <DataCardGrid
+          title="Acciones Vinculadas"
+          totalCount={schoolDetail?.total_acciones}
+          data={schoolDetail?.acciones_vinculadas?.map((accion) => ({
+            id: accion.id_accion,
+            title: accion.nombre,
+            subtitle: `Acción #${accion.id_accion}`,
+            stats: [
+              { label: "Asistencias", value: accion.asistencias },
+              { label: "Participantes", value: accion.participantes_unicos },
+            ],
+            action_id: accion.id_accion,
+          }))}
+          onItemClick={handleOpenDetailModal}
+        />
+      )}
+
       {/* Charts Grid */}
       {!selectedSchool && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -525,11 +649,7 @@ export function SchoolStats() {
                   />
                   <Tooltip
                     cursor={{ fill: "#f8fafc" }}
-                    contentStyle={{
-                      backgroundColor: "white",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                    }}
+                    content={<CustomChartTooltip config={tooltipConfig} />}
                   />
                   <Bar
                     dataKey="actividades"
@@ -620,6 +740,9 @@ export function SchoolStats() {
                     Escuela
                   </th>
                   <th className="text-center py-3 px-4 text-sm font-semibold text-slate-600">
+                    Acciones
+                  </th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-slate-600">
                     Actividades
                   </th>
                   <th className="text-center py-3 px-4 text-sm font-semibold text-slate-600">
@@ -658,6 +781,11 @@ export function SchoolStats() {
                             </span>
                           </div>
                         </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className="inline-flex items-center justify-center min-w-[40px] px-2 py-1 rounded-md bg-indigo-100 text-indigo-700 text-xs font-bold">
+                            {school.acciones}
+                          </span>
+                        </td>
                         <td className="py-4 px-4 text-center text-sm text-slate-700 font-medium">
                           {school.actividades}
                         </td>
@@ -686,7 +814,7 @@ export function SchoolStats() {
                 ) : (
                   <tr>
                     <td
-                      colSpan="4"
+                      colSpan="5"
                       className="py-12 text-center text-slate-500"
                     >
                       No se encontraron escuelas con ese nombre.
@@ -695,6 +823,21 @@ export function SchoolStats() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+      {selectedAction && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            onClick={() => setSelectedAction(null)}
+          />
+
+          <div className="relative z-10 w-full max-w-5xl overflow-hidden">
+            <ActionDetailCard
+              action={selectedAction}
+              onClose={() => setSelectedAction(null)}
+            />
           </div>
         </div>
       )}

@@ -37,6 +37,8 @@ export const API_ENDPOINTS = {
   dashboardFacultad: "dashboard-stats/por_facultad",
   dashboardFacultadDetalle: "dashboard-stats/detalle_facultad",
   dashboardDetalleAccion: "dashboard-stats/detalle_accion",
+  dashboardUnidadOrganizativa: "dashboard-stats/por_unidad",
+  dashboardUnidadOrganizativaDetalle: "dashboard-stats/detalle_unidad",
   dashboardTiempoStats: "dashboard-stats/por_tiempo_stats",
   dashboardTiempoDetalle: "dashboard-stats/detalle_rango_tiempo",
   dashboardAccionDetalleRange: "dashboard-stats/detalle_accion_range",
@@ -123,7 +125,7 @@ apiClient.interceptors.response.use(
 
 export async function apiRequest(entityType, method = "GET", body = null, queryOrId = null) {
     const endpoint = API_ENDPOINTS[entityType];
-    
+    console.log("query recibido:", queryOrId); 
     if (!endpoint) {
         console.error(`🚨 Error: Endpoint no definido para: ${entityType}`);
         throw new Error(`Endpoint no definido para: ${entityType}`);

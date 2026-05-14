@@ -4,8 +4,10 @@ import {
   BookOpen,
   Users,
   Search,
+  Filter,
   BarChart3,
   PieChart as PieChartIcon,
+  Target,
 } from "lucide-react";
 import {
   BarChart,
@@ -21,6 +23,10 @@ import {
   Legend,
 } from "recharts";
 import { apiRequest } from "../../api/api";
+import { data } from "react-router";
+import { CustomChartTooltip } from "./SubComponents/CustomTooltip";
+import DataCardGrid from "./SubComponents/DataCardGrid";
+import { ActionDetailCard } from "./SubComponents/ActionDetailCard";
 
 const COLORS = [
   "#8b5cf6", // Violet
@@ -45,6 +51,8 @@ export function FacultyStats() {
     start: "",
     end: "",
   });
+  const [facultyDetail, setFacultyDetail] = useState(null);
+  const [selectedAction, setSelectedAction] = useState(null);
 
   useEffect(() => {
     const fetchFaculties = async () => {
@@ -54,11 +62,13 @@ export function FacultyStats() {
         let query = "";
 
         if (appliedRange.start && appliedRange.end) {
-          query = `?start_date=${appliedRange.start}&end_date=${appliedRange.end}`;
+          query = `?start_date=${appliedRange.start}&end_date=${appliedRange.end}&tipo=facultad`;
+        }else{
+          query = `?tipo=facultad`;
         }
-
-        const data = await apiRequest("dashboardFacultad", "GET", null, query);
-
+        console.log("Query enviada:", query);
+        const data = await apiRequest("dashboardUnidadOrganizativa", "GET", null, query);
+        console.log("Data desde el endpoint",data); 
         setStats(data);
 
         // 🔥 si hay facultad seleccionada recalculamos detalle
@@ -78,21 +88,25 @@ export function FacultyStats() {
   }, [appliedRange, selectedFaculty]);
 
   const fetchFacultyDetail = async (faculty) => {
+    console.log("Obteniendo detalle para facultad:", faculty);
     try {
       let query = `?id=${faculty.id}`;
 
       if (appliedRange.start && appliedRange.end) {
-        query += `&fecha_inicio=${appliedRange.start}&fecha_fin=${appliedRange.end}`;
+        query += `&fecha_inicio=${appliedRange.start}&fecha_fin=${appliedRange.end}&tipo=facultad`;
+      } else {
+        query += `&tipo=facultad`;
       }
 
       const data = await apiRequest(
-        "dashboardFacultadDetalle",
+        "dashboardUnidadOrganizativaDetalle",
         "GET",
         null,
         query,
       );
 
       setEstamentoData(data.estamento_participantes);
+      setFacultyDetail(data);
     } catch (error) {
       console.error(error);
     }
@@ -128,6 +142,41 @@ export function FacultyStats() {
     }
   };
 
+  const getRangeDates = () => {
+    const start = appliedRange.start || pendingStart;
+    const end = appliedRange.end || pendingEnd;
+
+    return {
+      inicio: start,
+      fin: end,
+    };
+  };
+
+  const handleOpenDetailModal = async (item) => {
+    const { inicio, fin } = getRangeDates();
+
+    const params = new URLSearchParams({
+      id: item.action_id, // Asegúrate que el nombre coincida con el backend
+      inicio: inicio || "",
+      fin: fin || "",
+      tipo_filtro: "FACULTAD",
+      filtro_id: selectedFaculty.id,
+    });
+
+    try {
+      const resp = await apiRequest(
+        "dashboardAccionDetalleRange",
+        "GET",
+        null,
+        `?${params.toString()}`,
+      );
+
+      setSelectedAction(resp);
+    } catch (error) {
+      console.error("Error obteniendo detalle:", error);
+    }
+  };
+
   if (loading)
     return <div className="p-6 text-slate-500">Cargando facultades...</div>;
   if (!stats)
@@ -160,10 +209,24 @@ export function FacultyStats() {
     (sum, item) => sum + item.actividades,
     0,
   );
+
+  const totalActions = allFilteredData.reduce(
+    (sum, item) => sum + item.acciones,
+    0,
+  );
+
   const totalParticipants = allFilteredData.reduce(
     (sum, item) => sum + item.participantes,
     0,
   );
+
+  const totalParticipations = allFilteredData.reduce(
+    (sum, item) => sum + item.participaciones,
+    0,
+  );
+
+  const totalParticipantsFaculty = selectedFaculty?.participantes || 0;
+
   const grandTotalParticipants = stats.data.reduce(
     (sum, item) => sum + item.participantes,
     0,
@@ -179,6 +242,11 @@ export function FacultyStats() {
         100
       ).toFixed(1)
     : 0;
+
+  const tooltipConfig = [
+    { label: "Acciones", dataKey: "acciones", color: "text-indigo-700" },
+    { label: "Actividades", dataKey: "actividades", color: "text-blue-700" },
+  ];
 
   return (
     <div className="p-6">
@@ -245,7 +313,10 @@ export function FacultyStats() {
               {selectedFaculty.name}
 
               <button
-                onClick={() => setSelectedFaculty(null)}
+                onClick={() => {
+                  setSelectedFaculty(null);
+                  setFacultyDetail(null);
+                }}
                 className="text-purple-600 hover:text-purple-900"
               >
                 ✕
@@ -316,6 +387,21 @@ export function FacultyStats() {
             </div>
           </div>
 
+          {/* Total Acciones */}
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-500 rounded-lg shadow-sm">
+                <Target className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-slate-600 font-medium">Total Acciones</p>
+                <p className="text-2xl font-bold text-blue-900">
+                  {totalActions}
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Total Actividades */}
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
             <div className="flex items-center gap-3">
@@ -338,12 +424,21 @@ export function FacultyStats() {
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div>
-                <p className="text-slate-600 font-medium">
-                  Total Participantes
-                </p>
+                <p className="text-slate-600 font-medium">Participantes</p>
+
                 <p className="text-2xl font-bold text-green-900">
                   {totalParticipants}
                 </p>
+
+                <div className="mt-1 inline-flex items-center gap-2 bg-green-100 text-green-700 px-2 py-1 rounded-md">
+                  <span className="text-[11px] uppercase tracking-wide font-semibold">
+                    Participaciones
+                  </span>
+
+                  <span className="text-sm font-bold">
+                    {totalParticipations}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -351,7 +446,7 @@ export function FacultyStats() {
       )}
 
       {selectedFaculty && selectedFacultyData && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           {/* Facultad */}
           <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
             <div className="flex items-center gap-3">
@@ -366,7 +461,24 @@ export function FacultyStats() {
               </div>
             </div>
           </div>
+          {/* Acciones */}
+          <div className="bg-gradient-to-br from-violet-50 to-violet-100 p-4 rounded-lg border border-violet-200">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-violet-500 rounded-lg shadow-sm">
+                <BarChart3 className="w-6 h-6 text-white" />
+              </div>
 
+              <div>
+                <p className="text-slate-600 font-medium">Acciones</p>
+
+                <p className="text-2xl font-bold text-violet-900">
+                  {facultyDetail?.total_acciones ||
+                    selectedFacultyData?.acciones ||
+                    0}
+                </p>
+              </div>
+            </div>
+          </div>
           {/* Actividades */}
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
             <div className="flex items-center gap-3">
@@ -390,9 +502,20 @@ export function FacultyStats() {
               </div>
               <div>
                 <p className="text-slate-600 font-medium">Participantes</p>
+
                 <p className="text-2xl font-bold text-green-900">
-                  {selectedFacultyData.participantes}
+                  {totalParticipantsFaculty}
                 </p>
+
+                <div className="mt-1 inline-flex items-center gap-2 bg-green-100 text-green-700 px-2 py-1 rounded-md">
+                  <span className="text-[11px] uppercase tracking-wide font-semibold">
+                    Participaciones
+                  </span>
+
+                  <span className="text-sm font-bold">
+                    {selectedFacultyData.participaciones}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -457,6 +580,24 @@ export function FacultyStats() {
         </div>
       )}
 
+      {!selectedAction && (
+        <DataCardGrid
+          title="Acciones Vinculadas"
+          totalCount={facultyDetail?.total_acciones}
+          data={facultyDetail?.acciones_vinculadas?.map((accion) => ({
+            id: accion.id_accion,
+            title: accion.nombre,
+            subtitle: `Acción #${accion.id_accion}`,
+            stats: [
+              { label: "Asistencias", value: accion.asistencias },
+              { label: "Participantes", value: accion.participantes_unicos },
+            ],
+            action_id: accion.id_accion,
+          }))}
+          onItemClick={handleOpenDetailModal}
+        />
+      )}
+
       {/* Charts Grid */}
       {!selectedFaculty && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -493,12 +634,9 @@ export function FacultyStats() {
                   />
                   <Tooltip
                     cursor={{ fill: "#f8fafc" }}
-                    contentStyle={{
-                      backgroundColor: "white",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                    }}
+                    content={<CustomChartTooltip config={tooltipConfig} />}
                   />
+
                   <Bar
                     dataKey="actividades"
                     radius={[0, 4, 4, 0]}
@@ -566,93 +704,123 @@ export function FacultyStats() {
       )}
 
       {/* Tabla Detallada con Scroll */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[500px]">
-        <div className="p-6 border-b border-slate-200">
-          <h3 className="text-slate-900 font-semibold">Detalle por Facultad</h3>
-        </div>
-
-        <div className="overflow-auto flex-1">
-          <table className="w-full relative">
-            <thead className="sticky top-0 bg-slate-50 z-10 shadow-sm">
-              <tr>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">
-                  Facultad
-                </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-slate-600">
-                  Actividades
-                </th>
-                <th className="text-center py-3 px-4 text-sm font-semibold text-slate-600">
-                  Participantes
-                </th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600 w-1/3">
-                  % Participación Global
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {allFilteredData.length > 0 ? (
-                allFilteredData.map((faculty, index) => {
-                  const color = COLORS[index % COLORS.length];
-                  const participacionGlobal =
-                    grandTotalParticipants > 0
-                      ? (
-                          (faculty.participantes / grandTotalParticipants) *
-                          100
-                        ).toFixed(1)
-                      : 0;
-
-                  return (
-                    <tr
-                      key={index}
-                      className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
-                    >
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: color }}
-                          />
-                          <span className="text-sm font-medium text-slate-900">
-                            {faculty.name}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-center text-sm text-slate-700 font-medium">
-                        {faculty.actividades}
-                      </td>
-                      <td className="py-4 px-4 text-center text-sm text-slate-700 font-medium">
-                        {faculty.participantes}
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs font-medium w-10 text-right text-slate-500">
-                            {participacionGlobal}%
-                          </span>
-                          <div className="w-full bg-slate-100 rounded-full h-2">
-                            <div
-                              className="h-2 rounded-full transition-all duration-500"
-                              style={{
-                                width: `${participacionGlobal}%`,
-                                backgroundColor: color,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
+      {!selectedFaculty && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[500px]">
+          <div className="p-6 border-b border-slate-200">
+            <h3 className="text-slate-900 font-semibold flex items-center gap-2">
+              <Filter className="w-4 h-4 text-indigo-600" />
+              Listado Completo {searchTerm && "(Filtrado)"}
+            </h3>
+          </div>
+          <div className="overflow-auto flex-1">
+            <table className="w-full relative">
+              <thead className="sticky top-0 bg-slate-50 z-10 shadow-sm">
                 <tr>
-                  <td colSpan="4" className="py-12 text-center text-slate-500">
-                    No se encontraron facultades.
-                  </td>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600">
+                    Facultad
+                  </th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-slate-600">
+                    Acciones
+                  </th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-slate-600">
+                    Actividades
+                  </th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-slate-600">
+                    Participantes
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600 w-1/3">
+                    % Participación Global
+                  </th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {allFilteredData.length > 0 ? (
+                  allFilteredData.map((faculty, index) => {
+                    const color = COLORS[index % COLORS.length];
+                    const participacionGlobal =
+                      grandTotalParticipants > 0
+                        ? (
+                            (faculty.participantes / grandTotalParticipants) *
+                            100
+                          ).toFixed(1)
+                        : 0;
+
+                    return (
+                      <tr
+                        key={index}
+                        className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                      >
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: color }}
+                            />
+                            <span className="text-sm font-medium text-slate-900">
+                              {faculty.name}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className="inline-flex items-center justify-center min-w-[40px] px-2 py-1 rounded-md bg-indigo-100 text-indigo-700 text-xs font-bold">
+                            {faculty.acciones}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center text-sm text-slate-700 font-medium">
+                          {faculty.actividades}
+                        </td>
+                        <td className="py-4 px-4 text-center text-sm text-slate-700 font-medium">
+                          {faculty.participantes}
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-medium w-10 text-right text-slate-500">
+                              {participacionGlobal}%
+                            </span>
+                            <div className="w-full bg-slate-100 rounded-full h-2">
+                              <div
+                                className="h-2 rounded-full transition-all duration-500"
+                                style={{
+                                  width: `${participacionGlobal}%`,
+                                  backgroundColor: color,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="5"
+                      className="py-12 text-center text-slate-500"
+                    >
+                      No se encontraron facultades.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+      {selectedAction && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            onClick={() => setSelectedAction(null)}
+          />
+
+          <div className="relative z-10 w-full max-w-4xl max-h-[90vh]">
+            <ActionDetailCard
+              action={selectedAction}
+              onClose={() => setSelectedAction(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

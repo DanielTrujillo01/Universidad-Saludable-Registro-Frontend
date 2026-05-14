@@ -20,7 +20,7 @@ export function ActionDetailCard({ action, onClose }) {
   }, [action]);
 
   return (
-    <div className="animate-in fade-in slide-in-from-top-4 duration-300 bg-slate-900 rounded-2xl p-6 text-white shadow-2xl relative overflow-hidden border border-slate-700">
+    <div className="custom-scrollbar animate-in fade-in slide-in-from-top-4 duration-300 bg-slate-900 rounded-2xl p-6 text-white shadow-2xl relative border border-slate-700 overflow-y-auto overflow-x-hidden max-h-[90vh] w-full">
       {/* Fondo Decorativo */}
       <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -30,7 +30,7 @@ export function ActionDetailCard({ action, onClose }) {
             <div className="flex items-center gap-2 mb-1">
               <span className="bg-indigo-500 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-widest">Acción Estratégica</span>
             </div>
-            <h3 className="text-2xl font-bold text-white">{action.nombre}</h3>
+            <h3 className="text-2xl font-bold text-white break-words">{action.nombre}</h3>
             <p className="text-slate-400 text-sm mt-1">
               Desglose operativo de objetivos y recursos utilizados
             </p>
@@ -87,7 +87,7 @@ export function ActionDetailCard({ action, onClose }) {
           {/* Columna derecha: Listado de Actividades y sus Secciones */}
           <div className="lg:col-span-2 space-y-4">
             <h4 className="flex items-center gap-2 font-bold text-slate-200 text-sm uppercase tracking-widest">
-              <LayoutGrid className="w-4 h-4 text-indigo-400" /> Actividades Vinculadas
+              <LayoutGrid className="w-4 h-4 text-indigo-400 break-words" /> Actividades Vinculadas
             </h4>
 
             <div className="grid grid-cols-1 gap-4">

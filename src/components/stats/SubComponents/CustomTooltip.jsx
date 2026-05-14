@@ -1,4 +1,4 @@
-export function CustomTooltip({ active, payload, label }){
+const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
@@ -35,3 +35,33 @@ export function CustomTooltip({ active, payload, label }){
   }
   return null;
 };
+
+const CustomChartTooltip = ({ active, payload, label, config = [] }) => {
+  // 1. Validaciones de Recharts
+  if (!active || !payload || !payload.length) return null;
+
+  // 2. Extraer los datos del punto actual
+  const data = payload[0].payload;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg shadow-md p-3 min-w-[150px]">
+      {/* Título: Usa el nombre del objeto o el label del eje si existe */}
+      <p className="font-semibold text-slate-800 mb-2">
+        {data.name || label}
+      </p>
+
+      <div className="space-y-1 text-sm">
+        {config.map((item, index) => (
+          <p key={index} className={item.color || "text-slate-600"}>
+            {item.label}:{" "}
+            <span className="font-semibold">
+              {data[item.dataKey]}
+            </span>
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export { CustomTooltip, CustomChartTooltip };

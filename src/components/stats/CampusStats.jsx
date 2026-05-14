@@ -5,7 +5,9 @@ import {
   Search,
   BarChart3,
   PieChart as PieChartIcon,
+  Target,
 } from "lucide-react";
+
 import {
   BarChart,
   Bar,
@@ -19,7 +21,11 @@ import {
   Cell,
   Legend,
 } from "recharts";
+
 import { apiRequest } from "../../api/api";
+import { CustomChartTooltip } from "./SubComponents/CustomTooltip";
+import DataCardGrid from "./SubComponents/DataCardGrid";
+import { ActionDetailCard } from "./SubComponents/ActionDetailCard";
 
 const COLORS = [
   "#3b82f6",
@@ -33,19 +39,25 @@ const COLORS = [
 
 export function CampusStats() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [useDateRange, setUseDateRange] = useState(false);
   const [selectedCampus, setSelectedCampus] = useState(null);
+  const [selectedAction, setSelectedAction] = useState(null);
+
   const [pendingStart, setPendingStart] = useState("");
   const [pendingEnd, setPendingEnd] = useState("");
+
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
   const [appliedRange, setAppliedRange] = useState({
     start: "",
     end: "",
   });
+
   const [stats, setStats] = useState(null);
   const [estamentoData, setEstamentoData] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [campusDetail, setCampusDetail] = useState(null);
 
   useEffect(() => {
     const fetchCampus = async () => {
@@ -62,11 +74,15 @@ export function CampusStats() {
 
         setStats(data);
 
-        // 🔥 si hay sede seleccionada recalculamos su distribución
+        // 🔥 ahora selectedCampus ya es el objeto completo
         if (selectedCampus) {
-          const campusObj = data.data.find((c) => c.name === selectedCampus);
-          if (campusObj) {
-            fetchCampusDetail(campusObj);
+          const updatedCampus = data.data.find(
+            (c) => c.id === selectedCampus.id,
+          );
+
+          if (updatedCampus) {
+            setSelectedCampus(updatedCampus);
+            fetchCampusDetail(updatedCampus);
           }
         } else {
           setEstamentoData(data.estamento_global);
@@ -84,7 +100,10 @@ export function CampusStats() {
   useEffect(() => {
     if (!pendingStart || !pendingEnd) {
       if (appliedRange.start || appliedRange.end) {
-        setAppliedRange({ start: "", end: "" });
+        setAppliedRange({
+          start: "",
+          end: "",
+        });
       }
     }
   }, [pendingStart, pendingEnd]);
@@ -105,7 +124,7 @@ export function CampusStats() {
     setSuggestions(matches);
     setShowSuggestions(true);
   };
-  
+
   const fetchCampusDetail = async (campus) => {
     try {
       let query = `?id=${campus.id}`;
@@ -114,21 +133,28 @@ export function CampusStats() {
         query += `&fecha_inicio=${appliedRange.start}&fecha_fin=${appliedRange.end}`;
       }
 
-      const data = await apiRequest("dashboardSedeDetalle", "GET", null, query);
+      const data = await apiRequest(
+        "dashboardSedeDetalle",
+        "GET",
+        null,
+        query,
+      );
 
       setEstamentoData(data.estamento_participantes);
+      setCampusDetail(data);
     } catch (error) {
       console.error(error);
     }
   };
 
   const selectCampus = (campus) => {
-    setSelectedCampus(campus.name);
+    setSelectedCampus(campus);
+
     setSearchTerm("");
     setSuggestions([]);
     setShowSuggestions(false);
 
-    fetchCampusDetail(campus); // 🔥
+    fetchCampusDetail(campus);
   };
 
   const applyFilter = () => {
@@ -157,19 +183,60 @@ export function CampusStats() {
     }
   };
 
-  if (loading)
+  const getRangeDates = () => {
+    const start = appliedRange.start || pendingStart;
+    const end = appliedRange.end || pendingEnd;
+
+    return {
+      inicio: start,
+      fin: end,
+    };
+  };
+
+  const handleOpenDetailModal = async (item) => {
+    const { inicio, fin } = getRangeDates();
+
+    const params = new URLSearchParams({
+      id: item.action_id,
+      inicio: inicio || "",
+      fin: fin || "",
+      tipo_filtro: "SEDE",
+      filtro_id: selectedCampus.id,
+    });
+
+    try {
+      const resp = await apiRequest(
+        "dashboardAccionDetalleRange",
+        "GET",
+        null,
+        `?${params.toString()}`,
+      );
+
+      setSelectedAction(resp);
+    } catch (error) {
+      console.error("Error obteniendo detalle:", error);
+    }
+  };
+
+  if (loading) {
     return <div className="p-6 text-slate-500">Cargando sedes...</div>;
-  if (!stats)
-    return <div className="p-6 text-red-500">No hay datos disponibles.</div>;
+  }
+
+  if (!stats) {
+    return (
+      <div className="p-6 text-red-500">
+        No hay datos disponibles.
+      </div>
+    );
+  }
 
   const totalGlobalParticipants = stats.data.reduce(
     (sum, item) => sum + item.participantes,
     0,
   );
 
-  const selectedCampusData = stats.data.find(
-    (item) => item.name === selectedCampus,
-  );
+  // 🔥 ahora usamos directamente selectedCampus
+  const selectedCampusData = selectedCampus;
 
   const campusParticipationPercent =
     selectedCampusData && totalGlobalParticipants > 0
@@ -182,39 +249,71 @@ export function CampusStats() {
   let filteredData = stats.data;
 
   if (selectedCampus) {
-    filteredData = stats.data.filter((item) => item.name === selectedCampus);
+    filteredData = stats.data.filter(
+      (item) => item.id === selectedCampus.id,
+    );
   } else if (searchTerm) {
     filteredData = stats.data.filter((item) =>
       item.name.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }
 
+  const totalActions = filteredData.reduce(
+    (sum, item) => sum + item.acciones,
+    0,
+  );
+
   const totalActivities = filteredData.reduce(
     (sum, item) => sum + item.actividades,
     0,
   );
+
   const totalParticipants = filteredData.reduce(
     (sum, item) => sum + item.participantes,
     0,
   );
 
+  const totalParticipations = filteredData.reduce(
+    (sum, item) => sum + item.participaciones,
+    0,
+  );
+
+  const tooltipConfig = [
+    {
+      label: "Acciones",
+      dataKey: "acciones",
+      color: "text-indigo-700",
+    },
+    {
+      label: "Actividades",
+      dataKey: "actividades",
+      color: "text-blue-700",
+    },
+  ];
+
   return (
     <div className="p-6">
-      {/* Header */}
+      {/* ========================= */}
+      {/* HEADER */}
+      {/* ========================= */}
+
       <div className="mb-6">
         <h2 className="text-slate-900 flex items-center gap-2 text-xl font-bold">
           <Building className="w-6 h-6 text-blue-600" />
           Actividades por Sede
         </h2>
+
         <p className="text-slate-600 mt-1">
-          Distribución de actividades y participantes en las diferentes sedes
-          universitarias
+          Distribución de actividades y participantes
+          en las diferentes sedes universitarias
         </p>
       </div>
 
-      {/* Search Bar */}
+      {/* ========================= */}
+      {/* SEARCH */}
+      {/* ========================= */}
+
       <div className="mb-6">
-        {/* Buscador */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
 
@@ -240,12 +339,15 @@ export function CampusStats() {
             </div>
           )}
         </div>
+
         {selectedCampus && (
           <div className="mt-4 flex items-center gap-2">
-            <span className="text-sm text-slate-500">Sede seleccionada:</span>
+            <span className="text-sm text-slate-500">
+              Sede seleccionada:
+            </span>
 
             <div className="flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">
-              {selectedCampus}
+              {selectedCampus.name}
 
               <button
                 onClick={() => {
@@ -331,12 +433,27 @@ export function CampusStats() {
           <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-500 rounded-lg shadow-sm">
+                <Target className="w-6 h-6 text-white" />
+              </div>
+
+              <div>
+                <p className="text-slate-600 font-medium">Acciones</p>
+                <p className="text-2xl font-bold text-purple-900">
+                  {selectedCampusData.acciones}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 rounded-lg border border-indigo-200">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-500 rounded-lg shadow-sm">
                 <BarChart3 className="w-6 h-6 text-white" />
               </div>
 
               <div>
                 <p className="text-slate-600 font-medium">Actividades</p>
-                <p className="text-2xl font-bold text-purple-900">
+                <p className="text-2xl font-bold text-indigo-900">
                   {selectedCampusData.actividades}
                 </p>
               </div>
@@ -348,12 +465,22 @@ export function CampusStats() {
               <div className="p-2 bg-green-500 rounded-lg shadow-sm">
                 <Users className="w-6 h-6 text-white" />
               </div>
-
               <div>
                 <p className="text-slate-600 font-medium">Participantes</p>
+
                 <p className="text-2xl font-bold text-green-900">
-                  {selectedCampusData.participantes}
+                  {totalParticipants}
                 </p>
+
+                <div className="mt-1 inline-flex items-center gap-2 bg-green-100 text-green-700 px-2 py-1 rounded-md">
+                  <span className="text-[11px] uppercase tracking-wide font-semibold">
+                    Participaciones
+                  </span>
+
+                  <span className="text-sm font-bold">
+                    {selectedCampusData.participaciones}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -376,6 +503,19 @@ export function CampusStats() {
             </div>
           </div>
 
+          <div className="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-lg border border-red-200">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-500 rounded-lg shadow-sm">
+                <Target className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-slate-600 font-medium">Total Acciones</p>
+                <p className="text-2xl font-bold text-red-900">
+                  {totalActions}
+                </p>
+              </div>
+            </div>
+          </div>
           <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-500 rounded-lg shadow-sm">
@@ -396,12 +536,21 @@ export function CampusStats() {
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div>
-                <p className="text-slate-600 font-medium">
-                  Total Participantes
-                </p>
+                <p className="text-slate-600 font-medium">Participantes</p>
+
                 <p className="text-2xl font-bold text-green-900">
                   {totalParticipants}
                 </p>
+
+                <div className="mt-1 inline-flex items-center gap-2 bg-green-100 text-green-700 px-2 py-1 rounded-md">
+                  <span className="text-[11px] uppercase tracking-wide font-semibold">
+                    Participaciones
+                  </span>
+
+                  <span className="text-sm font-bold">
+                    {totalParticipations}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -409,7 +558,7 @@ export function CampusStats() {
       )}
 
       {/* Distribución por Estamento */}
-      {estamentoData?.length > 0 && (
+      {campusDetail?.estamento_participantes?.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
           <h3 className="text-slate-800 font-semibold mb-4 flex items-center gap-2">
             <Users className="w-4 h-4 text-slate-400" />
@@ -417,7 +566,7 @@ export function CampusStats() {
           </h3>
 
           <div className="space-y-2">
-            {estamentoData.map((e, index) => (
+            {campusDetail.estamento_participantes.map((e, index) => (
               <div
                 key={index}
                 className="flex justify-between items-center bg-slate-50 hover:bg-slate-100 transition px-4 py-3 rounded-lg border border-slate-200"
@@ -450,6 +599,23 @@ export function CampusStats() {
         </div>
       )}
 
+      {!selectedAction && (
+        <DataCardGrid
+          title="Acciones Vinculadas"
+          totalCount={campusDetail?.total_acciones}
+          data={campusDetail?.acciones_vinculadas?.map((accion) => ({
+            id: accion.id_accion,
+            title: accion.nombre,
+            subtitle: `Acción #${accion.id_accion}`,
+            stats: [
+              { label: "Asistencias", value: accion.asistencias },
+              { label: "Participantes", value: accion.participantes_unicos },
+            ],
+            action_id: accion.id_accion,
+          }))}
+          onItemClick={handleOpenDetailModal}
+        />
+      )}
       {/* Charts Grid */}
       {!selectedCampus && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -479,11 +645,7 @@ export function CampusStats() {
                   <YAxis stroke="#64748b" tick={{ fontSize: 12 }} />
                   <Tooltip
                     cursor={{ fill: "#f8fafc" }}
-                    contentStyle={{
-                      backgroundColor: "white",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: "8px",
-                    }}
+                    content={<CustomChartTooltip config={tooltipConfig} />}
                   />
                   <Bar
                     dataKey="actividades"
@@ -589,6 +751,18 @@ export function CampusStats() {
 
                 <div className="space-y-3 mt-4">
                   <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-600">Acciones</span>
+                    <span
+                      className="px-2 py-0.5 rounded-md font-medium"
+                      style={{
+                        backgroundColor: `${color}15`,
+                        color: color,
+                      }}
+                    >
+                      {campus.acciones}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-600">Actividades</span>
                     <span
                       className="px-2 py-0.5 rounded-md font-medium"
@@ -633,6 +807,20 @@ export function CampusStats() {
               </div>
             );
           })}
+        </div>
+      )}
+      {selectedAction && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            onClick={() => setSelectedAction(null)}
+          />
+          <div className="relative z-10 w-full max-w-4xl max-h-[90vh]">
+            <ActionDetailCard
+              action={selectedAction}
+              onClose={() => setSelectedAction(null)}
+            />
+          </div>
         </div>
       )}
     </div>
